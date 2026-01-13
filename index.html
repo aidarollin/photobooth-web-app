@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aida's Cloud Photobooth</title>
+    <style>
+        body { background-color: #2c3e50; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding: 20px; }
+        
+        /* Camera Area */
+        .booth-container { max-width: 800px; margin: 0 auto; position: relative; }
+        video { width: 100%; border-radius: 10px; border: 5px solid #fff; transform: scaleX(-1); }
+        
+        /* Overlay */
+        #overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 8rem; font-weight: bold; color: #f1c40f; text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            display: none; pointer-events: none;
+        }
+
+        /* Controls */
+        .controls { margin-top: 20px; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); max-width: 800px; margin-left: auto; margin-right: auto; }
+        select, input, button { padding: 12px; border-radius: 5px; border: none; font-size: 16px; }
+        button { background-color: #e74c3c; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #c0392b; }
+        button:disabled { background-color: #95a5a6; }
+
+        /* Result Area */
+        #result-area { display: none; margin-top: 30px; animation: fadeIn 0.5s; }
+        #final-image { max-width: 100%; border: 5px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .download-btn { display: inline-block; margin-top: 15px; background: #27ae60; color: white; text-decoration: none; padding: 15px 30px; border-radius: 5px; font-weight: bold; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1>📸 Aida's Cloud Photobooth</h1>
+
+    <div class="booth-container" id="camera-section">
+        <video id="webcam" autoplay playsinline></video>
+        <div id="overlay">3</div>
+    </div>
+
+    <div class="controls" id="settings-section">
+        <select id="layout">
+            <option value="classic_strip">Classic Strip (1.5x8)</option>
+            <option value="3_strip">3-Photo Strip</option>
+            <option value="4_strip">4-Photo Strip</option>
+            <option value="4_square">Grid (4-Square)</option>
+        </select>
+        
+        <select id="filter">
+            <option value="Normal">Normal</option>
+            <option value="Black & White">Black & White</option>
+            <option value="Sepia">Sepia</option>
+            <option value="Vintage">Vintage</option>
+        </select>
+
+        <select id="bg_color">
+            <option value="white">White Background</option>
+            <option value="black">Black Background</option>
+        </select>
+
+        <input type="text" id="note_text" placeholder="Enter Note (e.g. Memories 2026)">
+        
+        <button onclick="startSession()" id="startBtn">🚀 START SESSION</button>
+    </div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <div id="result-area">
+        <h2>✨ Your Photo is Ready!</h2>
+        <img id="final-image" src="" alt="Photobooth Strip">
+        <br>
+        <a id="download-link" class="download-btn" download="photobooth.png">⬇️ Download Image</a>
+        <br><br>
+        <button onclick="location.reload()" style="background-color: #34495e;">🔄 Take Another</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const overlay = document.getElementById('overlay');
+        const resultArea = document.getElementById('result-area');
+        const finalImage = document.getElementById('final-image');
+        const downloadLink = document.getElementById('download-link');
+        
+        let capturedImages = [];
+
+        // Start Webcam
+        navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => { alert("Error accessing camera: " + err); });
+
+        function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+        async function startSession() {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('settings-section').style.opacity = '0.5';
+            capturedImages = [];
+            
+            const layout = document.getElementById('layout').value;
+            const count = layout === '3_strip' ? 3 : 4;
+
+            for (let i = 1; i <= count; i++) {
+                // Countdown
+                for (let c = 3; c > 0; c--) {
+                    overlay.style.display = 'block';
+                    overlay.innerText = c;
+                    await sleep(1000);
+                }
+                
+                overlay.innerText = "📸";
+                await sleep(200);
+                captureFrame();
+                
+                // Flash Effect
+                video.style.opacity = 0;
+                await sleep(100);
+                video.style.opacity = 1;
+                
+                overlay.style.display = 'none';
+                await sleep(1000); 
+            }
+
+            overlay.innerText = "Processing...";
+            overlay.style.display = 'block';
+            await processImages();
+        }
+
+        function captureFrame() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Flip horizontal to match mirror view
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0);
+            
+            capturedImages.push(canvas.toDataURL('image/jpeg', 0.9));
+        }
+
+        async function processImages() {
+            const data = {
+                images: capturedImages,
+                options: {
+                    layout: document.getElementById('layout').value,
+                    filter: document.getElementById('filter').value,
+                    bg_color: document.getElementById('bg_color').value,
+                    note: {
+                        text: document.getElementById('note_text').value,
+                        font: 'Pacifico' // Hardcoded for demo, can be dynamic
+                    }
+                }
+            };
+
+            try {
+                const response = await fetch('/process_strip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    finalImage.src = result.image;
+                    downloadLink.href = result.image;
+                    
+                    document.getElementById('camera-section').style.display = 'none';
+                    document.getElementById('settings-section').style.display = 'none';
+                    resultArea.style.display = 'block';
+                }
+            } catch (error) {
+                alert("Error processing images: " + error);
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
