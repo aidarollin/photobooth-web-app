@@ -51,7 +51,38 @@ window.onload = () => {
     setupSmartInteractions();
 };
 
-// --- UI CONTROLS ---
+// --- UI & TAB CONTROLS ---
+const TABS = ['tab-layout', 'tab-color', 'tab-text', 'tab-stickers'];
+const TAB_TITLES = ['Layout', 'Color', 'Text', 'Decorations'];
+let currentTabIndex = 0;
+
+function navigateTab(direction) {
+    currentTabIndex += direction;
+    if (currentTabIndex < 0) currentTabIndex = TABS.length - 1;
+    if (currentTabIndex >= TABS.length) currentTabIndex = 0;
+    syncTabs();
+}
+
+function openTab(tabId, index, event) {
+    currentTabIndex = index;
+    syncTabs();
+}
+
+function syncTabs() {
+    // Sync Mobile Header
+    document.getElementById('mobile-tab-title').innerText = TAB_TITLES[currentTabIndex];
+    
+    // Sync Content Panels
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById(TABS[currentTabIndex]).classList.add('active');
+    
+    // Sync Desktop Buttons
+    document.querySelectorAll('.tab-btn').forEach((b, idx) => {
+        if (idx === currentTabIndex) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+}
+
 function selectLayout(layoutName, element) {
     document.getElementById('active-layout').value = layoutName;
     document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
@@ -187,7 +218,7 @@ async function triggerPrintingAnimation() {
             hint.style.transform = 'translateY(-10px)';
             setTimeout(() => hint.remove(), 500); // Remove from DOM after fade
         }
-    }, 7000);
+    }, 5000);
 }
 
 // --- STICKERS & ZOOM LOGIC ---
