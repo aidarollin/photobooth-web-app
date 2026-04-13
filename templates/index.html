@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aida's Beauty Photobooth</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Caveat&family=Indie+Flower&family=Lobster&family=Pacifico&family=Sacramento&family=Satisfy&family=Special+Elite&family=Courier+Prime&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <div id="printing-overlay" class="hidden">
+        <div class="print-loader"></div>
+        <h2>Printing your photos...</h2>
+        <p>Please wait a moment ✨</p>
+    </div>
+
+    <div id="screen-setup">
+        
+        <div class="setup-sidebar">
+            <div class="tool-group">
+                <h3>Select Layout</h3>
+                <div class="layout-grid">
+                    <div class="layout-card active" onclick="selectLayout('strip_4', this)">
+                        <div class="v-grid strip-4"><div></div><div></div><div></div><div></div></div>
+                        <span>4-Pic Strip</span>
+                    </div>
+                    <div class="layout-card" onclick="selectLayout('strip_3', this)">
+                        <div class="v-grid strip-3"><div></div><div></div><div></div></div>
+                        <span>3-Pic Strip</span>
+                    </div>
+                    <div class="layout-card" onclick="selectLayout('grid_4', this)">
+                        <div class="v-grid square-4"><div></div><div></div><div></div><div></div></div>
+                        <span>4-Pic Grid</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tool-group">
+                <h3>Camera Filter</h3>
+                <select id="setup-filter" onchange="applyLiveFilter()"></select>
+            </div>
+
+            <div class="action-flex">
+                <button class="btn btn-primary" onclick="startSequence()">📸 Camera</button>
+                <button class="btn btn-outline" onclick="document.getElementById('file-upload').click()">📁 Upload</button>
+                <input type="file" id="file-upload" class="hidden" multiple accept="image/*" onchange="handleUpload(event)">
+            </div>
+        </div>
+
+        <div class="cam-wrapper">
+            <video id="webcam" autoplay playsinline muted></video>
+            <div id="overlay" class="hidden">3</div>
+        </div>
+
+    </div>
+
+    <div id="screen-editor" class="hidden">
+        
+        <div class="canvas-viewport" id="viewport">
+            <div id="print-wrapper">
+                <canvas id="final-canvas"></canvas>
+            </div>
+            <p class="drag-hint">✨ Tip: Drag stickers to move/rotate/resize! Drag background to pan. ✨</p>
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="adjustZoom(-0.1)">−</button>
+                <button class="zoom-btn" onclick="resetZoom()">⟲</button>
+                <button class="zoom-btn" onclick="adjustZoom(0.1)">+</button>
+            </div>
+        </div>
+
+        <div class="controls-sidebar">
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="openTab('tab-layout', event)">Layout</button>
+                <button class="tab-btn" onclick="openTab('tab-color', event)">Color</button>
+                <button class="tab-btn" onclick="openTab('tab-text', event)">Text</button>
+                <button class="tab-btn" onclick="openTab('tab-stickers', event)">Stickers</button>
+            </div>
+
+            <div class="tools-scroll-area">
+                <div id="tab-layout" class="tab-content active">
+                    <div class="control-group">
+                        <h4>Frame Color</h4>
+                        <div class="color-swatches">
+                            <div class="picker-wrapper"><input type="color" id="custom-bg" value="#ffffff" onchange="setBg(this.value)"></div>
+                            <div class="swatch" style="background: #ffffff; border: 1px solid #ddd" onclick="setBg('#ffffff')"></div>
+                            <div class="swatch" style="background: #000000;" onclick="setBg('#000000')"></div>
+                            <div class="swatch" style="background: #ffb6c1;" onclick="setBg('#ffb6c1')"></div>
+                            <div class="swatch" style="background: #ffdab9;" onclick="setBg('#ffdab9')"></div>
+                            <div class="swatch" style="background: #c1e1c5;" onclick="setBg('#c1e1c5')"></div>
+                            <div class="swatch" style="background: #b0c4de;" onclick="setBg('#b0c4de')"></div>
+                            <div class="swatch" style="background: #e6e6fa;" onclick="setBg('#e6e6fa')"></div>
+                        </div>
+                        <input type="hidden" id="bg-color" value="#ffffff">
+                    </div>
+                    
+                    <div class="control-group">
+                        <h4>Spacing</h4>
+                        <div class="slider-row">
+                            <span class="slider-label">Outer</span>
+                            <input type="range" id="adj-margin-outer" min="0" max="100" value="20" oninput="syncVal(this); render()">
+                            <input type="number" class="val-input" min="0" max="100" value="20" oninput="syncVal(this); render()">
+                        </div>
+                        <div class="slider-row">
+                            <span class="slider-label">Inner</span>
+                            <input type="range" id="adj-margin-inner" min="0" max="100" value="10" oninput="syncVal(this); render()">
+                            <input type="number" class="val-input" min="0" max="100" value="10" oninput="syncVal(this); render()">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-color" class="tab-content">
+                    <div class="control-group">
+                        <h4>Filter Style</h4>
+                        <select id="edit-filter" onchange="render()"></select>
+                        <div class="slider-row" style="margin-top:15px">
+                            <span class="slider-label">Intensity</span>
+                            <input type="range" id="filter-intensity" min="0" max="100" value="100" oninput="syncVal(this); render()">
+                            <input type="number" class="val-input" min="0" max="100" value="100" oninput="syncVal(this); render()">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <h4>Fine Tune</h4>
+                        <div class="slider-row"><span class="slider-label">Bright</span><input type="range" id="adj-bright" min="50" max="150" value="100" oninput="syncVal(this); render()"><input type="number" class="val-input" min="50" max="150" value="100" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Contrast</span><input type="range" id="adj-contrast" min="50" max="150" value="100" oninput="syncVal(this); render()"><input type="number" class="val-input" min="50" max="150" value="100" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Highlight</span><input type="range" id="adj-highlight" min="-50" max="50" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Shadow</span><input type="range" id="adj-shadow" min="-50" max="50" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Sharp</span><input type="range" id="adj-sharp" min="0" max="100" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="0" max="100" value="0" oninput="syncVal(this); render()"></div>
+                    </div>
+                </div>
+
+                <div id="tab-text" class="tab-content">
+                    <div class="control-group">
+                        <h4>Visibility</h4>
+                        <div class="toggle-row"><span>Show Note</span><label class="switch"><input type="checkbox" id="show-note" checked onchange="render()"><span class="slider-switch"></span></label></div>
+                        <div class="toggle-row"><span>Show Date</span><label class="switch"><input type="checkbox" id="show-date" checked onchange="render()"><span class="slider-switch"></span></label></div>
+                        <div class="toggle-row"><span>Footer Space</span><label class="switch"><input type="checkbox" id="enable-footer" checked onchange="render()"><span class="slider-switch"></span></label></div>
+                    </div>
+                    <div class="control-group">
+                        <h4>Note Settings</h4>
+                        <input type="text" id="note-text" value="Memories" oninput="render()" placeholder="Type something...">
+                        <div class="slider-row" style="margin-top:15px"><span class="slider-label">Size</span><input type="range" id="note-size" min="20" max="300" value="140" oninput="syncVal(this); render()"><input type="number" class="val-input" min="20" max="300" value="140" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">X Pos</span><input type="range" id="note-x" min="0" max="100" value="50" oninput="syncVal(this); render()"><input type="number" class="val-input" min="0" max="100" value="50" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Y Pos</span><input type="range" id="note-y" min="-50" max="50" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); render()"></div>
+                    </div>
+                    <div class="control-group">
+                        <h4>Date Settings</h4>
+                        <div class="slider-row"><span class="slider-label">Size</span><input type="range" id="date-size" min="10" max="150" value="60" oninput="syncVal(this); render()"><input type="number" class="val-input" min="10" max="150" value="60" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">X Pos</span><input type="range" id="date-x" min="0" max="100" value="50" oninput="syncVal(this); render()"><input type="number" class="val-input" min="0" max="100" value="50" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Y Pos</span><input type="range" id="date-y" min="-50" max="50" value="15" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="15" oninput="syncVal(this); render()"></div>
+                    </div>
+                    <div class="control-group">
+                        <h4>Font Family</h4>
+                        <select id="font-select" onchange="render()">
+                            <option value="Sacramento" selected>Sacramento (Signature)</option>
+                            <option value="Poppins">Modern (Poppins)</option>
+                            <option value="Pacifico">Pacifico</option>
+                            <option value="Lobster">Lobster</option>
+                            <option value="Caveat">Caveat</option>
+                            <option value="Indie Flower">Indie Flower</option>
+                            <option value="Courier Prime">Courier Prime</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="tab-stickers" class="tab-content">
+                    <div class="control-group">
+                        <h4>Add Stickers</h4>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom:10px;">Tap to add, then drag to move or resize!</p>
+                        <div class="sticker-grid">
+                            <button class="sticker-btn" style="background:#ffeaa7" onclick="clearStickers()">🚫</button>
+                            <button class="sticker-btn" onclick="addSticker('🎀')">🎀</button>
+                            <button class="sticker-btn" onclick="addSticker('✨')">✨</button>
+                            <button class="sticker-btn" onclick="addSticker('💖')">💖</button>
+                            <button class="sticker-btn" onclick="addSticker('🌸')">🌸</button>
+                            <button class="sticker-btn" onclick="addSticker('🦋')">🦋</button>
+                            <button class="sticker-btn" onclick="addSticker('☁️')">☁️</button>
+                            <button class="sticker-btn" onclick="addSticker('🧸')">🧸</button>
+                            <button class="sticker-btn" onclick="addSticker('🍓')">🍓</button>
+                            <button class="sticker-btn" onclick="addSticker('👑')">👑</button>
+                            <button class="sticker-btn" onclick="addSticker('🍒')">🍒</button>
+                            <button class="sticker-btn" onclick="addSticker('⭐')">⭐</button>
+                            <button class="sticker-btn" onclick="addSticker('🫧')">🫧</button>
+                            <button class="sticker-btn" onclick="addSticker('🐾')">🐾</button>
+                            <button class="sticker-btn" onclick="addSticker('🐰')">🐰</button>
+                            <button class="sticker-btn" onclick="addSticker('🐱')">🐱</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="global-actions">
+                <button class="btn btn-primary" onclick="downloadImage()">💾 Download Photo</button>
+                <button class="btn btn-outline" style="margin-top: 10px;" onclick="location.reload()">🔄 Start New Session</button>
+            </div>
+
+        </div>
+    </div>
+
+    <canvas id="capture-canvas" class="hidden"></canvas>
+    <input type="hidden" id="active-layout" value="strip_4">
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
