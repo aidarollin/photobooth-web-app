@@ -1,7 +1,3 @@
-/* =========================================
-   AIDA'S BEAUTY PHOTOBOOTH - ENGINE
-========================================= */
-
 const CONFIG = {
     filters: ["Normal", "Black & White", "Sepia", "Vintage", "Cool", "Warm", "Red Filter", "Green Filter", "Blue Filter"],
     camera: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: "user" },
@@ -16,7 +12,6 @@ let dragTarget = null;
 let selectedStickerIndex = null; 
 let interactionMode = null; 
 let startInteractionState = { sticker: {}, pos: {} };
-
 let zoomState = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
 
 const video = document.getElementById('webcam');
@@ -26,6 +21,19 @@ const finalCanvas = document.getElementById('final-canvas');
 const printWrapper = document.getElementById('print-wrapper');
 const finalCtx = finalCanvas.getContext('2d');
 const viewport = document.getElementById('viewport');
+
+// --- PERFORMANCE THROTTLE ---
+// Fixes "uninteractive" frozen sliders by offloading rendering to the GPU paint cycle
+let isRendering = false;
+function requestRender() {
+    if (!isRendering) {
+        isRendering = true;
+        requestAnimationFrame(() => {
+            render();
+            isRendering = false;
+        });
+    }
+}
 
 // --- INITIALIZATION ---
 window.onload = () => {
@@ -52,10 +60,9 @@ function selectLayout(layoutName, element) {
 
 function setBg(color) {
     document.getElementById('bg-color').value = color;
-    render();
+    requestRender();
 }
 
-// Sync function for Slider <-> Number Input
 function syncVal(el) {
     if (el.tagName.toLowerCase() === 'input' && el.type === 'range') {
         el.nextElementSibling.value = el.value;
@@ -161,7 +168,7 @@ async function triggerPrintingAnimation() {
     document.getElementById('screen-setup').classList.add('hidden');
     document.getElementById('printing-overlay').classList.remove('hidden');
     
-    render(); 
+    requestRender(); 
     
     await sleep(2000); 
     
@@ -171,15 +178,25 @@ async function triggerPrintingAnimation() {
     printWrapper.classList.remove('drop-in-animation');
     void printWrapper.offsetWidth; 
     printWrapper.classList.add('drop-in-animation');
+
+    // Smoothly vanish the tip after 7 seconds
+    setTimeout(() => {
+        const hint = document.getElementById('drag-hint');
+        if (hint) {
+            hint.style.opacity = '0';
+            hint.style.transform = 'translateY(-10px)';
+            setTimeout(() => hint.remove(), 500); // Remove from DOM after fade
+        }
+    }, 7000);
 }
 
 // --- STICKERS & ZOOM LOGIC ---
 function addSticker(char) {
     stickers.push({ char: char, x: finalCanvas.width / 2, y: finalCanvas.height / 2, size: 250, rotation: 0 });
     selectedStickerIndex = stickers.length - 1; 
-    render();
+    requestRender();
 }
-function clearStickers() { stickers = []; selectedStickerIndex = null; render(); }
+function clearStickers() { stickers = []; selectedStickerIndex = null; requestRender(); }
 
 function setTransform() {
     finalCanvas.style.transform = `translate(${zoomState.pointX}px, ${zoomState.pointY}px) scale(${zoomState.scale})`;
@@ -241,7 +258,7 @@ function setupSmartInteractions() {
                     if (h.type === 'delete') {
                         stickers.splice(selectedStickerIndex, 1);
                         selectedStickerIndex = null;
-                        render();
+                        requestRender();
                     } else {
                         interactionMode = 'resize';
                         startInteractionState = { sticker: { ...s }, pos };
@@ -269,7 +286,7 @@ function setupSmartInteractions() {
             interactionMode = 'drag';
             startInteractionState = { pos };
             if(e.cancelable) e.preventDefault();
-            render(); 
+            requestRender(); 
             return;
         }
         
@@ -278,32 +295,35 @@ function setupSmartInteractions() {
         zoomState.startY = clientY - zoomState.pointY; 
         zoomState.panning = true;
         selectedStickerIndex = null; 
-        render(); 
+        requestRender(); 
     }
 
     function handleMove(e) {
-        if(e.cancelable) e.preventDefault();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         const s = stickers[selectedStickerIndex];
 
         if (interactionMode === 'drag' && dragTarget) {
+            if(e.cancelable) e.preventDefault();
             const pos = getCanvasPos(e);
             dragTarget.x = pos.x; dragTarget.y = pos.y;
-            render();
+            requestRender();
         } else if (interactionMode === 'resize' && s) {
+            if(e.cancelable) e.preventDefault();
             const pos = getCanvasPos(e);
             const initialDist = Math.hypot(startInteractionState.pos.x - s.x, startInteractionState.pos.y - s.y);
             const currentDist = Math.hypot(pos.x - s.x, pos.y - s.y);
             s.size = Math.max(100, Math.min(1000, startInteractionState.sticker.size * (currentDist / initialDist)));
-            render();
+            requestRender();
         } else if (interactionMode === 'rotate' && s) {
+            if(e.cancelable) e.preventDefault();
             const pos = getCanvasPos(e);
             const initialAngle = Math.atan2(startInteractionState.pos.y - s.y, startInteractionState.pos.x - s.x);
             const currentAngle = Math.atan2(pos.y - s.y, pos.x - s.x);
             s.rotation = startInteractionState.sticker.rotation + (currentAngle - initialAngle);
-            render();
+            requestRender();
         } else if (zoomState.panning) {
+            if(e.cancelable) e.preventDefault();
             zoomState.pointX = clientX - zoomState.startX; 
             zoomState.pointY = clientY - zoomState.startY; 
             setTransform();
@@ -322,19 +342,19 @@ function setupSmartInteractions() {
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleEnd);
 
+    // Using passive:false allows us to strictly prevent default scrolling ONLY when engaging canvas items
     finalCanvas.addEventListener('touchstart', handleStart, {passive: false});
     window.addEventListener('touchmove', handleMove, {passive: false});
     window.addEventListener('touchend', handleEnd);
 }
 
-// --- RENDER ENGINE (SPLIT MARGINS & SHORTER FOOTER) ---
+// --- RENDER ENGINE ---
 function render() {
     if (capturedImages.length === 0) return;
 
     const layout = document.getElementById('active-layout').value;
     const bgColor = document.getElementById('bg-color').value;
     
-    // Split Margin Logic
     const marginOuter = parseInt(document.getElementById('adj-margin-outer').value) * 2; 
     const marginInner = parseInt(document.getElementById('adj-margin-inner').value) * 2; 
     
@@ -357,14 +377,11 @@ function render() {
     else if (layout === "strip_3") targetRatio = 4.5 / 4.2; 
     else targetRatio = 4.6 / 6.5;                            
 
-    // Calculate Photo Sizes mathematically using Outer and Inner limits
     let photoW = (w - (2 * marginOuter) - ((cols - 1) * marginInner)) / cols;
     let photoH = photoW / targetRatio;
     
-    // Base Height needed for photos and margins
     let baseH = (2 * marginOuter) + (photoH * rows) + (marginInner * (rows - 1));
 
-    // Shorter Footer
     let footerH = (enableFooter) ? (layout === "grid_4" ? 300 : 400) : 0;
 
     finalCanvas.width = w;
@@ -377,7 +394,6 @@ function render() {
         let r = Math.floor(i / cols);
         let c = i % cols;
         
-        // Accurate X & Y using Split Margins
         let x = marginOuter + c * (photoW + marginInner);
         let y = marginOuter + r * (photoH + marginInner);
 
@@ -452,9 +468,8 @@ function render() {
         const noteSize = parseInt(document.getElementById('note-size').value);
         const noteX = (document.getElementById('note-x').value / 100) * w;
         
-        // Relative placement so it always scales safely inside the shorter footer
         const noteY = ((document.getElementById('note-y').value / 100) * footerH) + baseH + (footerH/2);
-        const textOffset = footerH * 0.15; // Dynamic spacing to avoid clashes
+        const textOffset = footerH * 0.15; 
         
         const dateSize = parseInt(document.getElementById('date-size').value);
         const dateX = (document.getElementById('date-x').value / 100) * w;
