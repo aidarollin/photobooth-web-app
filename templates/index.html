@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aida's Beauty Photobooth</title>
+    <title>Aida's Photobooth</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Caveat&family=Indie+Flower&family=Lobster&family=Pacifico&family=Sacramento&family=Satisfy&family=Special+Elite&family=Courier+Prime&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -61,7 +61,9 @@
             <div id="print-wrapper">
                 <canvas id="final-canvas"></canvas>
             </div>
-            <p class="drag-hint">✨ Tip: Drag stickers to move/rotate/resize! Drag background to pan. ✨</p>
+            
+            <p class="drag-hint" id="drag-hint">✨ Tip: Drag stickers to move/rotate/resize! Drag background to pan. ✨</p>
+            
             <div class="zoom-controls">
                 <button class="zoom-btn" onclick="adjustZoom(-0.1)">−</button>
                 <button class="zoom-btn" onclick="resetZoom()">⟲</button>
@@ -98,13 +100,13 @@
                         <h4>Spacing</h4>
                         <div class="slider-row">
                             <span class="slider-label">Outer</span>
-                            <input type="range" id="adj-margin-outer" min="0" max="100" value="20" oninput="syncVal(this); render()">
-                            <input type="number" class="val-input" min="0" max="100" value="20" oninput="syncVal(this); render()">
+                            <input type="range" id="adj-margin-outer" min="0" max="100" value="20" oninput="syncVal(this); requestRender()">
+                            <input type="number" class="val-input" min="0" max="100" value="20" oninput="syncVal(this); requestRender()">
                         </div>
                         <div class="slider-row">
                             <span class="slider-label">Inner</span>
-                            <input type="range" id="adj-margin-inner" min="0" max="100" value="10" oninput="syncVal(this); render()">
-                            <input type="number" class="val-input" min="0" max="100" value="10" oninput="syncVal(this); render()">
+                            <input type="range" id="adj-margin-inner" min="0" max="100" value="10" oninput="syncVal(this); requestRender()">
+                            <input type="number" class="val-input" min="0" max="100" value="10" oninput="syncVal(this); requestRender()">
                         </div>
                     </div>
                 </div>
@@ -112,46 +114,46 @@
                 <div id="tab-color" class="tab-content">
                     <div class="control-group">
                         <h4>Filter Style</h4>
-                        <select id="edit-filter" onchange="render()"></select>
+                        <select id="edit-filter" onchange="requestRender()"></select>
                         <div class="slider-row" style="margin-top:15px">
                             <span class="slider-label">Intensity</span>
-                            <input type="range" id="filter-intensity" min="0" max="100" value="100" oninput="syncVal(this); render()">
-                            <input type="number" class="val-input" min="0" max="100" value="100" oninput="syncVal(this); render()">
+                            <input type="range" id="filter-intensity" min="0" max="100" value="100" oninput="syncVal(this); requestRender()">
+                            <input type="number" class="val-input" min="0" max="100" value="100" oninput="syncVal(this); requestRender()">
                         </div>
                     </div>
                     <div class="control-group">
                         <h4>Fine Tune</h4>
-                        <div class="slider-row"><span class="slider-label">Bright</span><input type="range" id="adj-bright" min="50" max="150" value="100" oninput="syncVal(this); render()"><input type="number" class="val-input" min="50" max="150" value="100" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">Contrast</span><input type="range" id="adj-contrast" min="50" max="150" value="100" oninput="syncVal(this); render()"><input type="number" class="val-input" min="50" max="150" value="100" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">Highlight</span><input type="range" id="adj-highlight" min="-50" max="50" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">Shadow</span><input type="range" id="adj-shadow" min="-50" max="50" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">Sharp</span><input type="range" id="adj-sharp" min="0" max="100" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="0" max="100" value="0" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Bright</span><input type="range" id="adj-bright" min="50" max="150" value="100" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="50" max="150" value="100" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">Contrast</span><input type="range" id="adj-contrast" min="50" max="150" value="100" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="50" max="150" value="100" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">Highlight</span><input type="range" id="adj-highlight" min="-50" max="50" value="0" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">Shadow</span><input type="range" id="adj-shadow" min="-50" max="50" value="0" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">Sharp</span><input type="range" id="adj-sharp" min="0" max="100" value="0" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="0" max="100" value="0" oninput="syncVal(this); requestRender()"></div>
                     </div>
                 </div>
 
                 <div id="tab-text" class="tab-content">
                     <div class="control-group">
                         <h4>Visibility</h4>
-                        <div class="toggle-row"><span>Show Note</span><label class="switch"><input type="checkbox" id="show-note" checked onchange="render()"><span class="slider-switch"></span></label></div>
-                        <div class="toggle-row"><span>Show Date</span><label class="switch"><input type="checkbox" id="show-date" checked onchange="render()"><span class="slider-switch"></span></label></div>
-                        <div class="toggle-row"><span>Footer Space</span><label class="switch"><input type="checkbox" id="enable-footer" checked onchange="render()"><span class="slider-switch"></span></label></div>
+                        <div class="toggle-row"><span>Show Note</span><label class="switch"><input type="checkbox" id="show-note" checked onchange="requestRender()"><span class="slider-switch"></span></label></div>
+                        <div class="toggle-row"><span>Show Date</span><label class="switch"><input type="checkbox" id="show-date" checked onchange="requestRender()"><span class="slider-switch"></span></label></div>
+                        <div class="toggle-row"><span>Footer Space</span><label class="switch"><input type="checkbox" id="enable-footer" checked onchange="requestRender()"><span class="slider-switch"></span></label></div>
                     </div>
                     <div class="control-group">
                         <h4>Note Settings</h4>
-                        <input type="text" id="note-text" value="Memories" oninput="render()" placeholder="Type something...">
-                        <div class="slider-row" style="margin-top:15px"><span class="slider-label">Size</span><input type="range" id="note-size" min="20" max="300" value="140" oninput="syncVal(this); render()"><input type="number" class="val-input" min="20" max="300" value="140" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">X Pos</span><input type="range" id="note-x" min="0" max="100" value="50" oninput="syncVal(this); render()"><input type="number" class="val-input" min="0" max="100" value="50" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">Y Pos</span><input type="range" id="note-y" min="-50" max="50" value="0" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); render()"></div>
+                        <input type="text" id="note-text" value="Memories" oninput="requestRender()" placeholder="Type something...">
+                        <div class="slider-row" style="margin-top:15px"><span class="slider-label">Size</span><input type="range" id="note-size" min="20" max="300" value="140" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="20" max="300" value="140" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">X Pos</span><input type="range" id="note-x" min="0" max="100" value="50" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="0" max="100" value="50" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">Y Pos</span><input type="range" id="note-y" min="-50" max="50" value="0" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="-50" max="50" value="0" oninput="syncVal(this); requestRender()"></div>
                     </div>
                     <div class="control-group">
                         <h4>Date Settings</h4>
-                        <div class="slider-row"><span class="slider-label">Size</span><input type="range" id="date-size" min="10" max="150" value="60" oninput="syncVal(this); render()"><input type="number" class="val-input" min="10" max="150" value="60" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">X Pos</span><input type="range" id="date-x" min="0" max="100" value="50" oninput="syncVal(this); render()"><input type="number" class="val-input" min="0" max="100" value="50" oninput="syncVal(this); render()"></div>
-                        <div class="slider-row"><span class="slider-label">Y Pos</span><input type="range" id="date-y" min="-50" max="50" value="15" oninput="syncVal(this); render()"><input type="number" class="val-input" min="-50" max="50" value="15" oninput="syncVal(this); render()"></div>
+                        <div class="slider-row"><span class="slider-label">Size</span><input type="range" id="date-size" min="10" max="150" value="60" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="10" max="150" value="60" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">X Pos</span><input type="range" id="date-x" min="0" max="100" value="50" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="0" max="100" value="50" oninput="syncVal(this); requestRender()"></div>
+                        <div class="slider-row"><span class="slider-label">Y Pos</span><input type="range" id="date-y" min="-50" max="50" value="15" oninput="syncVal(this); requestRender()"><input type="number" class="val-input" min="-50" max="50" value="15" oninput="syncVal(this); requestRender()"></div>
                     </div>
                     <div class="control-group">
                         <h4>Font Family</h4>
-                        <select id="font-select" onchange="render()">
+                        <select id="font-select" onchange="requestRender()">
                             <option value="Sacramento" selected>Sacramento (Signature)</option>
                             <option value="Poppins">Modern (Poppins)</option>
                             <option value="Pacifico">Pacifico</option>
