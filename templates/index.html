@@ -72,11 +72,17 @@
         </div>
 
         <div class="controls-sidebar">
-            <div class="tabs-header">
-                <button class="tab-btn active" onclick="openTab('tab-layout', event)">Layout</button>
-                <button class="tab-btn" onclick="openTab('tab-color', event)">Color</button>
-                <button class="tab-btn" onclick="openTab('tab-text', event)">Text</button>
-                <button class="tab-btn" onclick="openTab('tab-stickers', event)">Stickers</button>
+            <div class="tabs-header desktop-only">
+                <button class="tab-btn active" onclick="openTab('tab-layout', 0, event)">Layout</button>
+                <button class="tab-btn" onclick="openTab('tab-color', 1, event)">Color</button>
+                <button class="tab-btn" onclick="openTab('tab-text', 2, event)">Text</button>
+                <button class="tab-btn" onclick="openTab('tab-stickers', 3, event)">Stickers</button>
+            </div>
+
+            <div class="mobile-tab-nav mobile-only">
+                <button class="nav-arrow" onclick="navigateTab(-1)">&#9664;</button>
+                <h3 id="mobile-tab-title">Layout</h3>
+                <button class="nav-arrow" onclick="navigateTab(1)">&#9654;</button>
             </div>
 
             <div class="tools-scroll-area">
