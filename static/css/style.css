@@ -212,11 +212,11 @@ input[type=text] { width: 100%; padding: 12px; background: var(--input-bg); bord
     
     /* SIDE-BY-SIDE EDITOR UI */
     #screen-editor { 
-        flex-direction: row-reverse; /* Canvas 1st, Menu 2nd -> Flips to Menu Left, Canvas Right */
+        flex-direction: row; /* Changed from row-reverse to row */
         height: 100%; 
     }
     .canvas-viewport { 
-        width: 45%; /* Right side strip */
+        width: 45%;
         height: 100%; flex: none; 
         border-left: 1px solid var(--border);
     }
@@ -224,7 +224,7 @@ input[type=text] { width: 100%; padding: 12px; background: var(--input-bg); bord
     .drag-hint { font-size: 0.75rem; padding: 5px 10px; width: 80%; }
     
     .controls-sidebar { 
-        width: 55%; /* Left side menu */
+        width: 55%; 
         height: 100%; flex: none; border-left: none; 
     }
     .tools-scroll-area { padding: 0 10px 10px 10px; }
