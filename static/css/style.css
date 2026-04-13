@@ -128,9 +128,21 @@ video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
     box-shadow: -10px 0 30px rgba(0,0,0,0.05); z-index: 10;
 }
 
+/* Navigations */
+.desktop-only { display: flex; }
+.mobile-only { display: none; }
+
 .tabs-header { display: flex; background: #f8f9fa; padding: 10px; margin: 15px; border-radius: 15px; flex-shrink: 0;}
 .tab-btn { flex: 1; padding: 10px; background: transparent; border: none; color: var(--text-muted); font-weight: 600; font-size: 0.9rem; cursor: pointer; border-radius: 10px; transition: 0.3s; }
 .tab-btn.active { background: white; color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+
+.mobile-tab-nav {
+    align-items: center; justify-content: space-between;
+    background: #f8f9fa; padding: 12px 15px; margin: 10px; border-radius: 15px; flex-shrink: 0;
+}
+.mobile-tab-nav h3 { margin: 0; color: var(--accent); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;}
+.nav-arrow { background: white; border: 1px solid var(--border); color: var(--accent); width: 35px; height: 35px; border-radius: 50%; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s;}
+.nav-arrow:active { transform: scale(0.9); }
 
 /* Scrollable Tools Area */
 .tools-scroll-area { 
@@ -186,28 +198,45 @@ input[type=text] { width: 100%; padding: 12px; background: var(--input-bg); bord
 .sticker-btn:hover { transform: translateY(-3px); box-shadow: 0 5px 10px rgba(0,0,0,0.05); }
 .sticker-btn:active { transform: scale(0.95); }
 
-/* --- RESPONSIVE MOBILE BUG FIXES --- */
+/* --- RESPONSIVE MOBILE - SIDE-BY-SIDE FIX --- */
 @media (max-width: 900px) {
+    .desktop-only { display: none !important; }
+    .mobile-only { display: flex !important; }
+
     #screen-setup { 
         flex-direction: column-reverse; 
-        padding: 10px; 
-        height: 100%; /* Follows body 100dvh safely */
-        gap: 10px;
+        padding: 10px; height: 100%; gap: 10px;
     }
     .cam-wrapper { height: 45vh; flex: none; }
-    .setup-sidebar { 
-        width: 100%; flex: 1; min-height: 0; /* Critical for flex scroll */
-        margin-bottom: 0; padding-bottom: 40px; 
-    }
+    .setup-sidebar { width: 100%; flex: 1; min-height: 0; margin-bottom: 0; padding-bottom: 40px; }
     
-    #screen-editor { flex-direction: column; height: 100%; }
-    .canvas-viewport { height: 45vh; flex: none; }
-    #final-canvas { max-height: 90%; }
+    /* SIDE-BY-SIDE EDITOR UI */
+    #screen-editor { 
+        flex-direction: row-reverse; /* Canvas 1st, Menu 2nd -> Flips to Menu Left, Canvas Right */
+        height: 100%; 
+    }
+    .canvas-viewport { 
+        width: 45%; /* Right side strip */
+        height: 100%; flex: none; 
+        border-left: 1px solid var(--border);
+    }
+    #final-canvas { max-width: 95%; max-height: 95%; }
+    .drag-hint { font-size: 0.75rem; padding: 5px 10px; width: 80%; }
     
     .controls-sidebar { 
-        width: 100%; flex: 1; min-height: 0; /* Critical for flex scroll */
-        height: auto; border-left: none; 
+        width: 55%; /* Left side menu */
+        height: 100%; flex: none; border-left: none; 
     }
-    .tools-scroll-area { padding-bottom: 20px; }
-    .global-actions { padding-bottom: 40px; border-top: none; }
+    .tools-scroll-area { padding: 0 10px 10px 10px; }
+    .global-actions { padding: 10px; }
+    .global-actions .btn { font-size: 0.85rem; padding: 12px 10px; }
+    
+    /* Stacked input sliders to fit narrower left pane */
+    .slider-row { flex-wrap: wrap; gap: 5px; margin-bottom: 15px;}
+    .slider-label { flex: 0 0 100%; margin-bottom: -5px; }
+    input[type=range] { flex: 1; }
+    .val-input { flex: 0 0 45px; }
+    
+    .sticker-grid { grid-template-columns: repeat(auto-fill, minmax(45px, 1fr)); }
+    .sticker-btn { height: 45px; font-size: 1.4rem; }
 }
