@@ -37,6 +37,14 @@ function requestRender() {
 
 // --- INITIALIZATION ---
 window.onload = () => {
+
+    // Check for saved dark mode preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.getElementById('theme-toggle').innerText = '☀️';
+    }
+
     const setupFilterSel = document.getElementById('setup-filter');
     const editFilterSel = document.getElementById('edit-filter');
     CONFIG.filters.forEach(f => {
@@ -81,6 +89,24 @@ function syncTabs() {
         if (idx === currentTabIndex) b.classList.add('active');
         else b.classList.remove('active');
     });
+}
+
+// --- DARK MODE LOGIC ---
+function toggleTheme() {
+    const htmlTag = document.documentElement;
+    const toggleBtn = document.getElementById('theme-toggle');
+    
+    if (htmlTag.getAttribute('data-theme') === 'dark') {
+        // Switch to Light Mode
+        htmlTag.removeAttribute('data-theme');
+        toggleBtn.innerText = '🌙'; 
+        localStorage.setItem('theme', 'light');
+    } else {
+        // Switch to Dark Mode
+        htmlTag.setAttribute('data-theme', 'dark');
+        toggleBtn.innerText = '☀️'; 
+        localStorage.setItem('theme', 'dark');
+    }
 }
 
 function selectLayout(layoutName, element) {
