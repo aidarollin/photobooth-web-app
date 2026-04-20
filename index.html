@@ -207,6 +207,19 @@
         </div>
     </div>
 
+    <!-- Download success toast -->
+    <div id="download-toast" class="hidden">✅ Photo saved!</div>
+
+    <!-- In-app browser save modal -->
+    <div id="download-modal" class="hidden">
+        <div class="download-modal-content">
+            <h3>Save Your Photo</h3>
+            <p>Press and hold the image below, then tap <strong>Save to Photos</strong> (or Save Image).</p>
+            <img id="download-modal-img" src="" alt="Your photobooth strip">
+            <button class="btn btn-outline" style="margin-top:15px" onclick="closeDownloadModal()">✕ Close</button>
+        </div>
+    </div>
+
     <canvas id="capture-canvas" class="hidden"></canvas>
     <input type="hidden" id="active-layout" value="strip_4">
 

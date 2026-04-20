@@ -13,6 +13,7 @@ let selectedStickerIndex = null;
 let interactionMode = null; 
 let startInteractionState = { sticker: {}, pos: {} };
 let zoomState = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
+let pinchState = { active: false, startDist: 0, startScale: 1 };
 
 const video = document.getElementById('webcam');
 const overlay = document.getElementById('overlay');
@@ -55,7 +56,7 @@ window.onload = () => {
     navigator.mediaDevices.getUserMedia({ video: CONFIG.camera })
         .then(stream => video.srcObject = stream)
         .catch(e => alert("Camera Error: " + e));
-        
+
     setupSmartInteractions();
 };
 
@@ -260,6 +261,7 @@ function resetZoom() {
     setTransform();
 }
 
+
 function getCanvasPos(e) {
     const rect = finalCanvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -281,7 +283,22 @@ function getHandlePositions(s) {
 }
 
 function setupSmartInteractions() {
+    function pinchDist(e) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        return Math.hypot(dx, dy);
+    }
+
     function handleStart(e) {
+        if (e.touches && e.touches.length === 2) {
+            if (e.cancelable) e.preventDefault();
+            pinchState.active = true;
+            pinchState.startDist = pinchDist(e);
+            pinchState.startScale = zoomState.scale;
+            zoomState.panning = false;
+            return;
+        }
+
         const pos = getCanvasPos(e);
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -349,6 +366,14 @@ function setupSmartInteractions() {
     }
 
     function handleMove(e) {
+        if (e.touches && e.touches.length === 2 && pinchState.active) {
+            if (e.cancelable) e.preventDefault();
+            const ratio = pinchDist(e) / pinchState.startDist;
+            zoomState.scale = Math.max(0.5, Math.min(3, pinchState.startScale * ratio));
+            setTransform();
+            return;
+        }
+
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         const s = stickers[selectedStickerIndex];
@@ -380,7 +405,11 @@ function setupSmartInteractions() {
         }
     }
 
-    function handleEnd() { dragTarget = null; zoomState.panning = false; interactionMode = null; }
+    function handleEnd(e) {
+        if (e && e.touches && e.touches.length < 2) pinchState.active = false;
+        if (!e || !e.touches) pinchState.active = false;
+        dragTarget = null; zoomState.panning = false; interactionMode = null;
+    }
 
     function createCirclePath(x, y, r) {
         const path = new Path2D();
@@ -391,6 +420,11 @@ function setupSmartInteractions() {
     finalCanvas.addEventListener('mousedown', handleStart);
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleEnd);
+
+    viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        adjustZoom(e.deltaY < 0 ? 0.1 : -0.1);
+    }, { passive: false });
 
     // Using passive:false allows us to strictly prevent default scrolling ONLY when engaging canvas items
     finalCanvas.addEventListener('touchstart', handleStart, {passive: false});
@@ -589,9 +623,36 @@ function render() {
     }
 }
 
+function isInAppBrowser() {
+    const ua = navigator.userAgent || '';
+    return /Instagram|FBAN|FBAV|FB_IAB|Twitter\/|Line\/|Snapchat|TikTok|BytedanceWebview/.test(ua);
+}
+
 function downloadImage() {
+    if (isInAppBrowser()) {
+        const img = document.getElementById('download-modal-img');
+        img.src = finalCanvas.toDataURL('image/png', 1.0);
+        document.getElementById('download-modal').classList.remove('hidden');
+        return;
+    }
+
     const link = document.createElement('a');
     link.download = `AidasBooth_${Date.now()}.png`;
     link.href = finalCanvas.toDataURL('image/png', 1.0);
     link.click();
+    showDownloadToast();
+}
+
+function showDownloadToast() {
+    const toast = document.getElementById('download-toast');
+    toast.classList.remove('hidden');
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.classList.add('hidden'), 400);
+    }, 2500);
+}
+
+function closeDownloadModal() {
+    document.getElementById('download-modal').classList.add('hidden');
 }

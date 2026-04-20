@@ -252,6 +252,71 @@ input[type=text] { width: 100%; padding: 12px; background: var(--input-bg); bord
 .sticker-btn:hover { transform: translateY(-3px); box-shadow: 0 5px 10px rgba(0,0,0,0.05); }
 .sticker-btn:active { transform: scale(0.95); }
 
+/* --- DOWNLOAD TOAST --- */
+#download-toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) translateY(15px);
+    background: #2d3436;
+    color: #fff;
+    padding: 12px 28px;
+    border-radius: 30px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    opacity: 0;
+    z-index: 9999;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    white-space: nowrap;
+}
+#download-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* --- IN-APP BROWSER DOWNLOAD MODAL --- */
+#download-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.download-modal-content {
+    background: var(--panel-bg);
+    border-radius: 20px;
+    padding: 25px 20px;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.download-modal-content h3 {
+    margin: 0 0 8px;
+    color: var(--accent);
+    font-size: 1.2rem;
+}
+.download-modal-content p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+#download-modal-img {
+    width: 100%;
+    max-height: 55vh;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    display: block;
+}
+
 /* --- RESPONSIVE MOBILE - SIDE-BY-SIDE FIX --- */
 @media (max-width: 900px) {
     .desktop-only { display: none !important; }
