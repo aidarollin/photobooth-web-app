@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aida's Photobooth</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Caveat&family=Indie+Flower&family=Lobster&family=Pacifico&family=Sacramento&family=Satisfy&family=Special+Elite&family=Courier+Prime&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="static/css/style.css">
 </head>
 <body>
 
@@ -18,7 +18,7 @@
     </div>
 
     <div id="screen-setup">
-        
+
         <div class="setup-sidebar">
             <div class="tool-group">
                 <h3>Select Layout</h3>
@@ -58,14 +58,14 @@
     </div>
 
     <div id="screen-editor" class="hidden">
-        
+
         <div class="canvas-viewport" id="viewport">
             <div id="print-wrapper">
                 <canvas id="final-canvas"></canvas>
             </div>
-            
+
             <p class="drag-hint" id="drag-hint">✨ Tip: Drag stickers to move/rotate/resize! Drag background to pan. ✨</p>
-            
+
             <div class="zoom-controls">
                 <button class="zoom-btn" onclick="adjustZoom(-0.1)">−</button>
                 <button class="zoom-btn" onclick="resetZoom()">⟲</button>
@@ -103,7 +103,7 @@
                         </div>
                         <input type="hidden" id="bg-color" value="#ffffff">
                     </div>
-                    
+
                     <div class="control-group">
                         <h4>Spacing</h4>
                         <div class="slider-row">
@@ -210,6 +210,6 @@
     <canvas id="capture-canvas" class="hidden"></canvas>
     <input type="hidden" id="active-layout" value="strip_4">
 
-    <script src="/static/js/app.js"></script>
+    <script src="static/js/app.js"></script>
 </body>
 </html>
