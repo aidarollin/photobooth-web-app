@@ -1,7 +1,7 @@
 const CONFIG = {
     filters: ["Normal", "Black & White", "Sepia", "Vintage", "Cool", "Warm", "Red Filter", "Green Filter", "Blue Filter"],
     camera: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: "user" },
-    handles: { size: 30, offset: 15, colorAccent: "#ff477e", colorWhite: "#ffffff", colorDelete: "#ff0000" }
+    handles: { size: 30, offset: 15, colorAccent: "#d4628c", colorWhite: "#ffffff", colorDelete: "#ff0000" }
 };
 
 let capturedImages = [];
