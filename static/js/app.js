@@ -53,12 +53,44 @@ window.onload = () => {
         editFilterSel.add(new Option(f, f));
     });
 
+    setupSmartInteractions();
+};
+
+// --- SCREEN FLOW: landing -> frame -> capture -> editor ---
+const SCREENS = ['screen-landing', 'screen-frame', 'screen-setup', 'screen-editor'];
+const LAYOUTS = {
+    strip_4: { name: 'Classic Strip', shots: 4 },
+    strip_3: { name: 'Short Strip', shots: 3 },
+    grid_4:  { name: 'Grid', shots: 4 }
+};
+
+function showScreen(id) {
+    SCREENS.forEach(s => document.getElementById(s).classList.toggle('hidden', s !== id));
+}
+
+function enterBooth() {
+    const landing = document.getElementById('screen-landing');
+    landing.classList.add('entering');
+    setTimeout(() => {
+        showScreen('screen-frame');
+        landing.classList.remove('entering');
+    }, 550);
+}
+
+function confirmFrame() {
+    const layout = LAYOUTS[document.getElementById('active-layout').value];
+    document.getElementById('frame-summary-text').innerText = `${layout.name} · ${layout.shots} shots`;
+    showScreen('screen-setup');
+    startCamera();
+}
+
+// Only ask for camera permission once the user actually reaches the capture step
+function startCamera() {
+    if (video.srcObject) return;
     navigator.mediaDevices.getUserMedia({ video: CONFIG.camera })
         .then(stream => video.srcObject = stream)
         .catch(e => alert("Camera Error: " + e));
-
-    setupSmartInteractions();
-};
+}
 
 // --- UI & TAB CONTROLS ---
 const TABS = ['tab-layout', 'tab-color', 'tab-text', 'tab-stickers'];
@@ -112,8 +144,10 @@ function toggleTheme() {
 
 function selectLayout(layoutName, element) {
     document.getElementById('active-layout').value = layoutName;
-    document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('active'));
-    element.classList.add('active');
+    document.querySelectorAll('.frame-card').forEach(c => {
+        c.classList.toggle('active', c === element);
+        c.setAttribute('aria-pressed', c === element);
+    });
 }
 
 function setBg(color) {
@@ -148,7 +182,7 @@ async function startSequence() {
     stickers = []; 
     selectedStickerIndex = null;
     const layout = document.getElementById('active-layout').value;
-    const targetCount = (layout === 'strip_3') ? 3 : 4;
+    const targetCount = LAYOUTS[layout].shots;
     document.getElementById('edit-filter').value = document.getElementById('setup-filter').value;
 
     for (let i = 1; i <= targetCount; i++) {
@@ -181,7 +215,7 @@ async function handleUpload(event) {
     if (!files || files.length === 0) return;
 
     const layout = document.getElementById('active-layout').value;
-    const targetCount = (layout === 'strip_3') ? 3 : 4;
+    const targetCount = LAYOUTS[layout].shots;
 
     if (files.length < targetCount) {
         alert(`Please select at least ${targetCount} photos for this layout!`);
@@ -216,7 +250,7 @@ function loadImageFile(file) {
 
 // --- PRINTING OVERLAY & DROP ANIMATION ---
 async function triggerPrintingAnimation() {
-    document.getElementById('screen-setup').classList.add('hidden');
+    showScreen(null);
     document.getElementById('printing-overlay').classList.remove('hidden');
     
     requestRender(); 
@@ -224,7 +258,7 @@ async function triggerPrintingAnimation() {
     await sleep(2000); 
     
     document.getElementById('printing-overlay').classList.add('hidden');
-    document.getElementById('screen-editor').classList.remove('hidden');
+    showScreen('screen-editor');
     
     printWrapper.classList.remove('drop-in-animation');
     void printWrapper.offsetWidth; 

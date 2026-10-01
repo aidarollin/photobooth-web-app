@@ -17,24 +17,157 @@
         <p>Please wait a moment ✨</p>
     </div>
 
-    <div id="screen-setup">
+    <!-- SCREEN 0: LANDING -->
+    <div id="screen-landing">
+        <div class="booth-stage">
+            <svg class="booth-svg" viewBox="0 0 800 790" aria-hidden="true">
+                <defs>
+                    <filter id="sketchy">
+                        <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="4" result="noise"/>
+                        <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+                    </filter>
+                </defs>
+
+                <g filter="url(#sketchy)">
+                    <!-- Sign -->
+                    <rect class="paper ink" x="60" y="40" width="420" height="96" rx="4"/>
+                    <rect class="ink" x="72" y="52" width="396" height="72" rx="2"/>
+                    <text class="sign-text" x="270" y="106" textLength="350" lengthAdjust="spacingAndGlyphs">PHOTOBOOTH</text>
+                    <rect class="paper ink" x="116" y="136" width="10" height="28"/>
+                    <rect class="paper ink" x="130" y="136" width="10" height="28"/>
+                    <rect class="paper ink" x="400" y="136" width="10" height="28"/>
+                    <rect class="paper ink" x="414" y="136" width="10" height="28"/>
+
+                    <!-- Booth body -->
+                    <rect class="paper ink" x="40" y="164" width="720" height="600" rx="3"/>
+                    <line class="ink" x1="40" y1="204" x2="760" y2="204"/>
+                    <line class="ink" x1="420" y1="204" x2="420" y2="764"/>
+                    <line class="ink" x1="640" y1="204" x2="640" y2="764"/>
+
+                    <!-- Display window with sample strips -->
+                    <rect class="ink" x="90" y="250" width="280" height="180"/>
+                    <rect class="ink" x="104" y="264" width="252" height="152"/>
+                    <g transform="rotate(-6 165 340)">
+                        <rect class="strip-paper ink-thin" x="148" y="278" width="34" height="124"/>
+                        <rect class="cell c1" x="152" y="282" width="26" height="22"/>
+                        <rect class="cell c2" x="152" y="307" width="26" height="22"/>
+                        <rect class="cell c3" x="152" y="332" width="26" height="22"/>
+                        <rect class="cell c4" x="152" y="357" width="26" height="22"/>
+                    </g>
+                    <g transform="rotate(3 230 340)">
+                        <rect class="strip-paper ink-thin" x="213" y="282" width="34" height="118"/>
+                        <rect class="cell c3" x="217" y="286" width="26" height="28"/>
+                        <rect class="cell c4" x="217" y="317" width="26" height="28"/>
+                        <rect class="cell c1" x="217" y="348" width="26" height="28"/>
+                    </g>
+                    <g transform="rotate(-2 300 340)">
+                        <rect class="strip-paper ink-thin" x="270" y="290" width="62" height="96"/>
+                        <rect class="cell c2" x="274" y="294" width="26" height="36"/>
+                        <rect class="cell c1" x="302" y="294" width="26" height="36"/>
+                        <rect class="cell c4" x="274" y="333" width="26" height="36"/>
+                        <rect class="cell c3" x="302" y="333" width="26" height="36"/>
+                    </g>
+
+                    <!-- Photo delivery slot -->
+                    <rect class="ink" x="150" y="560" width="54" height="46" rx="2"/>
+                    <circle class="ink-thin" cx="158" cy="568" r="3"/>
+                    <circle class="ink-thin" cx="196" cy="568" r="3"/>
+                    <circle class="ink-thin" cx="158" cy="598" r="3"/>
+                    <circle class="ink-thin" cx="196" cy="598" r="3"/>
+                    <path class="ink-thin" d="M177 572 v18 M170 584 l7 7 l7 -7"/>
+                    <rect class="ink" x="150" y="614" width="54" height="112" rx="2"/>
+                    <rect class="ink" x="160" y="624" width="34" height="92"/>
+                    <path class="ink" d="M164 640 h26 M177 640 v72"/>
+
+                    <!-- Curtain -->
+                    <line class="ink" x1="424" y1="214" x2="636" y2="214"/>
+                    <g class="curtain">
+                        <path class="ink" d="M440 214 q14 60 0 120 q-14 60 0 120 q14 50 2 110"/>
+                        <path class="ink" d="M474 214 q-12 60 0 120 q12 60 0 120 q-12 50 -2 112"/>
+                        <path class="ink" d="M508 214 q14 60 0 120 q-14 60 0 120 q14 50 2 108"/>
+                        <path class="ink" d="M542 214 q-12 60 0 120 q12 60 0 120 q-12 50 -2 112"/>
+                        <path class="ink" d="M576 214 q14 60 0 120 q-14 60 0 120 q14 50 2 110"/>
+                        <path class="ink" d="M610 214 q-12 60 0 120 q12 60 0 120 q-12 50 -2 108"/>
+                        <path class="ink" d="M432 566 q20 8 42 0 q18 -8 34 -2 q18 8 34 0 q18 -8 34 -2 q18 8 34 0 q12 -6 22 0"/>
+                    </g>
+
+                    <!-- Stool -->
+                    <ellipse class="paper ink" cx="530" cy="606" rx="62" ry="16"/>
+                    <path class="ink" d="M468 606 v10 q62 26 124 0 v-10"/>
+                    <rect class="paper ink" x="520" y="626" width="20" height="104"/>
+                    <ellipse class="paper ink" cx="530" cy="736" rx="44" ry="12"/>
+
+                    <!-- Mirror -->
+                    <rect class="ink" x="664" y="250" width="72" height="220" rx="2"/>
+                    <path class="ink-thin" d="M680 282 l18 -14 M684 294 l18 -14 M716 450 l12 -10 M708 456 l20 -16"/>
+                </g>
+
+                <!-- Hand-written notes (kept crisp, outside the wobble filter) -->
+                <text class="scribble accent-fill" x="548" y="84" transform="rotate(-8 548 84)">aida's</text>
+                <path class="ink-thin accent-stroke" d="M540 96 q-24 14 -50 6 m10 -10 l-10 10 l12 6"/>
+                <text class="scribble" x="236" y="500" transform="rotate(-4 236 500)">sample strips</text>
+                <path class="ink-thin" d="M300 476 q16 -18 4 -38 m-10 6 l10 -8 l4 12"/>
+            </svg>
+
+            <button class="enter-btn" onclick="enterBooth()">enter <span aria-hidden="true">&rarr;</span></button>
+        </div>
+    </div>
+
+    <!-- SCREEN 1: CHOOSE FRAME -->
+    <div id="screen-frame" class="hidden">
+        <div class="frame-inner">
+            <h1 class="hand-title">choose your <span>frame</span></h1>
+            <p class="frame-sub">You can change colors, text &amp; stickers after the shoot.</p>
+
+            <div class="frame-options">
+                <button class="frame-card active" aria-pressed="true" onclick="selectLayout('strip_4', this)">
+                    <div class="frame-preview-area">
+                        <div class="frame-preview fp-strip-4">
+                            <div class="fp-photo"></div><div class="fp-photo"></div><div class="fp-photo"></div><div class="fp-photo"></div>
+                            <div class="fp-footer">memories</div>
+                        </div>
+                    </div>
+                    <span class="frame-name">Classic Strip</span>
+                    <span class="frame-meta">4 shots</span>
+                </button>
+                <button class="frame-card" aria-pressed="false" onclick="selectLayout('strip_3', this)">
+                    <div class="frame-preview-area">
+                        <div class="frame-preview fp-strip-3">
+                            <div class="fp-photo"></div><div class="fp-photo"></div><div class="fp-photo"></div>
+                            <div class="fp-footer">memories</div>
+                        </div>
+                    </div>
+                    <span class="frame-name">Short Strip</span>
+                    <span class="frame-meta">3 shots</span>
+                </button>
+                <button class="frame-card" aria-pressed="false" onclick="selectLayout('grid_4', this)">
+                    <div class="frame-preview-area">
+                        <div class="frame-preview fp-grid-4">
+                            <div class="fp-photo"></div><div class="fp-photo"></div><div class="fp-photo"></div><div class="fp-photo"></div>
+                            <div class="fp-footer">memories</div>
+                        </div>
+                    </div>
+                    <span class="frame-name">Grid</span>
+                    <span class="frame-meta">4 shots</span>
+                </button>
+            </div>
+
+            <div class="frame-actions">
+                <button class="btn btn-outline" onclick="showScreen('screen-landing')">&larr; Back</button>
+                <button class="btn btn-primary" onclick="confirmFrame()">Next &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: CAPTURE -->
+    <div id="screen-setup" class="hidden">
 
         <div class="setup-sidebar">
             <div class="tool-group">
-                <h3>Select Layout</h3>
-                <div class="layout-grid">
-                    <div class="layout-card active" onclick="selectLayout('strip_4', this)">
-                        <div class="v-grid strip-4"><div></div><div></div><div></div><div></div></div>
-                        <span>4-Pic Strip</span>
-                    </div>
-                    <div class="layout-card" onclick="selectLayout('strip_3', this)">
-                        <div class="v-grid strip-3"><div></div><div></div><div></div></div>
-                        <span>3-Pic Strip</span>
-                    </div>
-                    <div class="layout-card" onclick="selectLayout('grid_4', this)">
-                        <div class="v-grid square-4"><div></div><div></div><div></div><div></div></div>
-                        <span>4-Pic Grid</span>
-                    </div>
+                <h3>Your Frame</h3>
+                <div class="frame-summary">
+                    <span id="frame-summary-text">Classic Strip · 4 shots</span>
+                    <button class="link-btn" onclick="showScreen('screen-frame')">Change</button>
                 </div>
             </div>
 
