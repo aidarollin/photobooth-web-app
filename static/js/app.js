@@ -662,17 +662,59 @@ function isInAppBrowser() {
     return /Instagram|FBAN|FBAV|FB_IAB|Twitter\/|Line\/|Snapchat|TikTok|BytedanceWebview/.test(ua);
 }
 
+function isIOS() {
+    const ua = navigator.userAgent || '';
+    // iPadOS 13+ reports itself as Mac, so also check for touch support
+    return /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+// Synchronous dataURL -> File so navigator.share() still runs inside the tap gesture
+function dataURLToFile(dataURL, filename) {
+    const [header, base64] = dataURL.split(',');
+    const mime = header.match(/:(.*?);/)[1];
+    const bytes = atob(base64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new File([arr], filename, { type: mime });
+}
+
+function showSaveModal(dataURL) {
+    document.getElementById('download-modal-img').src = dataURL;
+    document.getElementById('download-modal').classList.remove('hidden');
+}
+
 function downloadImage() {
+    // Drop the sticker selection handles so they aren't baked into the photo
+    selectedStickerIndex = null;
+    render();
+
+    const filename = `AidasBooth_${Date.now()}.png`;
+    const dataURL = finalCanvas.toDataURL('image/png', 1.0);
+
     if (isInAppBrowser()) {
-        const img = document.getElementById('download-modal-img');
-        img.src = finalCanvas.toDataURL('image/png', 1.0);
-        document.getElementById('download-modal').classList.remove('hidden');
+        showSaveModal(dataURL);
+        return;
+    }
+
+    // iOS Safari ignores <a download> for Photos (it silently goes to Files, if anywhere),
+    // so open the native share sheet, which offers "Save Image" straight to Photos.
+    if (isIOS()) {
+        const file = dataURLToFile(dataURL, filename);
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({ files: [file] })
+                .then(() => showDownloadToast())
+                .catch(err => {
+                    if (err.name !== 'AbortError') showSaveModal(dataURL);
+                });
+        } else {
+            showSaveModal(dataURL);
+        }
         return;
     }
 
     const link = document.createElement('a');
-    link.download = `AidasBooth_${Date.now()}.png`;
-    link.href = finalCanvas.toDataURL('image/png', 1.0);
+    link.download = filename;
+    link.href = dataURL;
     link.click();
     showDownloadToast();
 }
