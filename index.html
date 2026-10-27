@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aida's Photobooth</title>
     <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&family=Nunito:wght@400;600;700;800&family=Poppins:wght@300;400;600&family=Caveat&family=Indie+Flower&family=Lobster&family=Pacifico&family=Sacramento&family=Satisfy&family=Special+Elite&family=Courier+Prime&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="static/css/style.css?v=3">
+    <link rel="stylesheet" href="static/css/style.css?v=8">
 </head>
 <body>
 
@@ -34,9 +34,17 @@
             <button class="enter-btn" onclick="enterBooth()">Enter booth</button>
         </div>
 
+        <!-- Booth + cat (drawn by scene.js). On enter the cat runs in and the curtain drops. -->
         <div class="landing-props" aria-hidden="true">
-            <svg id="sprite-booth" class="booth-sprite" viewBox="0 0 44 67" shape-rendering="crispEdges"></svg>
-            <svg id="sprite-cat" class="cat-sprite" viewBox="0 0 20 28" shape-rendering="crispEdges"></svg>
+            <svg id="sprite-booth" class="booth-sprite" viewBox="0 0 112 134" shape-rendering="crispEdges"></svg>
+            <div class="booth-glow"></div>
+            <div class="cat-walker">
+                <svg id="sprite-cat" class="cat-sprite" viewBox="0 0 48 34" shape-rendering="crispEdges"></svg>
+            </div>
+            <svg id="sprite-cat-inside" class="cat-inside" viewBox="0 0 37 26" shape-rendering="crispEdges"></svg>
+            <div class="curtain-clip">
+                <svg id="sprite-curtain" class="curtain-sprite" viewBox="0 0 38 63" shape-rendering="crispEdges"></svg>
+            </div>
         </div>
 
         <div class="landing-flash"></div>
@@ -237,25 +245,15 @@
 
                 <div id="tab-stickers" class="tab-content">
                     <div class="control-group">
+                        <h4>Sticker Color</h4>
+                        <div class="variant-row" id="sticker-variants" role="radiogroup" aria-label="Sticker color"></div>
+                        <div class="toggle-row" style="margin-top:16px; margin-bottom:0"><span>Die-cut Border</span><label class="switch"><input type="checkbox" id="sticker-border" checked onchange="setStickerBorder(this.checked)"><span class="slider-switch"></span></label></div>
+                    </div>
+                    <div class="control-group">
                         <h4>Add Stickers</h4>
-                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom:10px;">Tap to add, then drag to move or resize!</p>
-                        <div class="sticker-grid">
-                            <button class="sticker-btn" style="background:#ffeaa7" onclick="clearStickers()">🚫</button>
-                            <button class="sticker-btn" onclick="addSticker('🎀')">🎀</button>
-                            <button class="sticker-btn" onclick="addSticker('✨')">✨</button>
-                            <button class="sticker-btn" onclick="addSticker('💖')">💖</button>
-                            <button class="sticker-btn" onclick="addSticker('🌸')">🌸</button>
-                            <button class="sticker-btn" onclick="addSticker('🦋')">🦋</button>
-                            <button class="sticker-btn" onclick="addSticker('☁️')">☁️</button>
-                            <button class="sticker-btn" onclick="addSticker('🧸')">🧸</button>
-                            <button class="sticker-btn" onclick="addSticker('🍓')">🍓</button>
-                            <button class="sticker-btn" onclick="addSticker('👑')">👑</button>
-                            <button class="sticker-btn" onclick="addSticker('🍒')">🍒</button>
-                            <button class="sticker-btn" onclick="addSticker('⭐')">⭐</button>
-                            <button class="sticker-btn" onclick="addSticker('🫧')">🫧</button>
-                            <button class="sticker-btn" onclick="addSticker('🐾')">🐾</button>
-                            <button class="sticker-btn" onclick="addSticker('🐰')">🐰</button>
-                            <button class="sticker-btn" onclick="addSticker('🐱')">🐱</button>
+                        <p class="sticker-help">Tap to add, then drag to move or resize! Select a placed sticker and pick a color to recolor it.</p>
+                        <div class="sticker-grid" id="sticker-grid">
+                            <button class="sticker-btn sticker-clear" onclick="clearStickers()" title="Remove all stickers" aria-label="Remove all stickers">🚫</button>
                         </div>
                     </div>
                 </div>
@@ -285,7 +283,8 @@
     <canvas id="capture-canvas" class="hidden"></canvas>
     <input type="hidden" id="active-layout" value="strip_4">
 
-    <script src="static/js/scene.js?v=3"></script>
-    <script src="static/js/app.js?v=4"></script>
+    <script src="static/js/stickers.js?v=8"></script>
+    <script src="static/js/scene.js?v=8"></script>
+    <script src="static/js/app.js?v=8"></script>
 </body>
 </html>

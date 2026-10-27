@@ -5,8 +5,13 @@
 @property --sky-4 { syntax: '<color>'; inherits: true; initial-value: #f2eed6; }
 @property --sky-5 { syntax: '<color>'; inherits: true; initial-value: #fae5d1; }
 
+/* One art pixel for the pixel scene (backdrop, booth, cat): a whole number of screen pixels */
+:root { --px: 3px; }
+@media (max-width: 700px), (max-height: 720px) { :root { --px: 2px; } }
+@media (min-width: 1800px) and (min-height: 1000px) { :root { --px: 4px; } }
+
 :root {
-    /* One scenery "pixel" — matches how the backdrop SVGs scale to cover the screen */
+    /* Scale of the sky-band dithering */
     --u: max(0.3125vw, 0.5vh);
 
     --ink: #4b3550;
@@ -32,7 +37,9 @@
     --c-star: transparent;
     --c-cf1: #f6b3c4; --c-cf2: #b5e3c8; --c-cf3: #f8dc86; --c-cf4: #c9b5ea;
     --c-wire: #8b6c70; --c-sock: #8b6c70;
-    --c-bulb: #ffeaa0; --c-core: #fffdf0; --c-glow: #fff1b0;
+    --c-bulb: #ffeaa0; --c-core: #fffdf0;
+    --c-g1a: rgba(255, 241, 176, 0.35); --c-g1b: var(--c-g1a); --c-g1c: var(--c-g1a);
+    --c-g2a: rgba(255, 241, 176, 0.6); --c-g2b: var(--c-g2a); --c-g2c: var(--c-g2a);
     --c-spk: #ffffff;
     --c-cl1: #fff7e6; --c-cl2: #fde4c9; --c-cl3: #f6ccb8;
     --c-hf: #c9b3df; --c-hf2: #dccaec;
@@ -43,15 +50,6 @@
     --c-fv: #c4aeea; --c-fvd: #9e86d4;
     --c-fy: #f9e39a; --c-fyd: #ebc464;
     --c-fs: #8cbf86; --c-fl: #a8d59d;
-
-    --c-ink: var(--ink);
-    --c-bp: #f4b3be; --c-bl: #fbd2d6; --c-bd: #e597a7; --c-bdd: #cf7f92;
-    --c-mt: #b8e6ca; --c-mtd: #92cfad;
-    --c-scr: #4b3a5c; --c-scrhi: #8a77a3; --c-btn: #4b3a5c;
-    --c-dp: #e8789a; --c-dm: #7fcca2; --c-dy: #f2c94c;
-    --c-f: #fff4e0; --c-shd: rgba(75, 53, 80, 0.18);
-    --c-cw: #fffaf3; --c-cq: #f7c1a0; --c-cp: #f6aec0; --c-ck: #3a2a40;
-    --c-cc: #f8bccb; --c-cn: #e8789a; --c-cy: #f6d36b; --c-cv: #c4aeea; --c-ch: #e8789a;
 
     transition: --sky-1 0.7s ease, --sky-2 0.7s ease, --sky-3 0.7s ease, --sky-4 0.7s ease, --sky-5 0.7s ease;
 }
@@ -80,7 +78,8 @@
     --c-star: #fff6d6;
     --c-cf1: rgba(246, 179, 196, 0.35); --c-cf2: rgba(181, 227, 200, 0.3); --c-cf3: rgba(248, 220, 134, 0.35); --c-cf4: rgba(201, 181, 234, 0.35);
     --c-wire: #0c0a1a; --c-sock: #3a3058;
-    --c-bulb: #ffe28a; --c-core: #fffbe6; --c-glow: #ffd970;
+    --c-bulb: #ffe28a; --c-core: #fffbe6;
+    --c-g1a: rgba(255, 217, 112, 0.22); --c-g2a: rgba(255, 217, 112, 0.42);
     --c-spk: #fff6d6;
     --c-cl1: #6a5a92; --c-cl2: #54467d; --c-cl3: #45396b;
     --c-hf: #3a3264; --c-hf2: #4a4078;
@@ -91,13 +90,6 @@
     --c-fv: #8f7bc0; --c-fvd: #6e5a9f;
     --c-fy: #d8bd70; --c-fyd: #9c8344;
     --c-fs: #2f5a3a; --c-fl: #3b6b47;
-
-    --c-bp: #d697a6; --c-bl: #e6b3bd; --c-bd: #b67688; --c-bdd: #93586c;
-    --c-mt: #86bfa2; --c-mtd: #669c82;
-    --c-scr: #6c5c9a; --c-scrhi: #b3a6dc; --c-btn: #2a2140;
-    --c-f: #f1e4d0; --c-shd: rgba(0, 0, 0, 0.3);
-    --c-cw: #ece4ef; --c-cq: #d6a68c; --c-cp: #d998aa; --c-ck: #1a1326;
-    --c-cc: #dba1b1; --c-cv: #9f8ccc;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -133,7 +125,7 @@ body {
    Per element: --oc outline colour, --lift drop-shadow depth, --inset extra inner shading. */
 .theme-toggle, .btn, .enter-btn, .frame-card, .setup-sidebar, .cam-wrapper, .frame-summary,
 .tabs-header, .mobile-tab-nav, .control-group, .drag-hint, .zoom-controls, .nav-arrow,
-select, input[type=text], .sticker-btn, .swatch, .picker-wrapper,
+select, input[type=text], .sticker-btn, .variant-btn, .swatch, .picker-wrapper,
 #download-toast, .download-modal-content, .print-card, .print-loader {
     --oc: var(--ink);
     --lift: 0px;
@@ -146,15 +138,17 @@ select, input[type=text], .sticker-btn, .swatch, .picker-wrapper,
         var(--inset);
 }
 
-/* --- PIXEL SCENERY --- */
+/* --- PIXEL SCENERY (drawn by scene.js at one --px per art pixel) --- */
 .scene { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.scene-sky { position: absolute; top: 0; left: 0; width: 100%; height: calc(70 * var(--u)); display: block; }
-.scene-ground { position: absolute; bottom: 0; left: 0; width: 100%; height: calc(110 * var(--u)); display: block; }
+.scene-sky { position: absolute; top: 0; display: block; }
+.scene-ground { position: absolute; bottom: 0; display: block; }
 .scene path, .landing-props path { transition: fill 0.7s ease; }
 .scene .twinkle { animation: twinkle 2.4s steps(2, jump-none) infinite; }
-.scene .glow { animation: glow 3s ease-in-out infinite; }
+.scene .c-g1a, .scene .c-g2a { animation: glow 3s steps(3, jump-none) infinite; }
+.scene .c-g1b, .scene .c-g2b { animation: glow 3s steps(3, jump-none) -1s infinite; }
+.scene .c-g1c, .scene .c-g2c { animation: glow 3s steps(3, jump-none) -2s infinite; }
 @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-@keyframes glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 #screen-landing, #screen-frame, #screen-setup, #screen-editor { position: relative; z-index: 1; }
 
@@ -238,32 +232,78 @@ select, input[type=text], .sticker-btn, .swatch, .picker-wrapper,
 .enter-btn:hover { transform: translateY(-2px); --lift: 8px; }
 .enter-btn:active { transform: translateY(4px); --lift: 2px; }
 
-/* Booth + cat stand in the meadow, left of centre like the hero art */
+/* Booth + cat stand in the meadow, left of centre like the hero art. Sizes are in sprite pixels;
+   scene.js snaps the group onto the backdrop's pixel grid. */
 .landing-props {
-    position: absolute; z-index: 1; left: 50%; bottom: calc(5 * var(--u));
-    transform: translateX(calc(-100% - 7vw));
-    display: flex; align-items: flex-end; gap: calc(2 * var(--u));
+    position: absolute; z-index: 1; left: 50%; bottom: calc(4 * var(--px));
+    width: calc(152 * var(--px)); height: calc(134 * var(--px));
+    transform: translateX(calc(-100% + 8 * var(--px) - 3vw));
     pointer-events: none;
 }
-.booth-sprite { width: calc(44 * var(--u)); height: calc(67 * var(--u)); display: block; }
-.cat-sprite {
-    width: calc(20 * var(--u)); height: calc(28 * var(--u)); display: block;
-    animation: bob 1.6s steps(1) infinite;
+[data-theme="dark"] .landing-props { filter: brightness(0.86) saturate(0.92); }
+.booth-sprite { position: absolute; left: 0; top: 0; width: calc(112 * var(--px)); height: calc(134 * var(--px)); display: block; }
+
+/* Doorway layers: glow and drop curtain sit over the opening (x 59, y 47, 38x63 sprite pixels).
+   The curtain slides down inside a clip instead of stretching, so its pixels never distort. */
+.booth-glow, .curtain-clip {
+    position: absolute; left: calc(59 * var(--px)); top: calc(47 * var(--px));
+    width: calc(38 * var(--px)); height: calc(63 * var(--px));
 }
-@keyframes bob { 50% { transform: translateY(calc(-1 * var(--u))); } }
+.curtain-clip { z-index: 3; overflow: hidden; }
+.curtain-sprite { display: block; width: 100%; height: 100%; transform: translateY(-100%); }
+.booth-glow { z-index: 4; opacity: 0; background: #fff8e1; }
+
+.cat-walker {
+    position: absolute; z-index: 2; left: calc(106 * var(--px)); top: calc(98 * var(--px));
+    width: calc(48 * var(--px)); height: calc(34 * var(--px));
+}
+.cat-sprite { width: 100%; height: 100%; display: block; }
+/* Smaller cat drawn for inside the booth (same pixel size, fewer pixels) */
+.cat-inside {
+    position: absolute; z-index: 2; left: calc(60 * var(--px)); top: calc(89 * var(--px));
+    width: calc(var(--sw, 37) * var(--px)); height: calc(var(--sh, 26) * var(--px));
+    display: block; opacity: 0;
+}
+.cat-sprite .cat-run1, .cat-sprite .cat-run2 { opacity: 0; }
+.cat-sprite .cat-blink { opacity: 0; animation: blink 4.5s steps(1) infinite; }
+@keyframes blink { 0%, 92% { opacity: 0; } 93%, 96% { opacity: 1; } 97% { opacity: 0; } }
 
 .landing-flash { position: fixed; inset: 0; z-index: 5; background: #fffdf5; opacity: 0; pointer-events: none; }
 
-/* Entering: the booth screen lights up and the camera flashes */
-#screen-landing.entering .c-scr { fill: #fffdf5 !important; }
-#screen-landing.entering .landing-flash { animation: flash 0.55s ease-out; }
-#screen-landing.entering .cat-sprite { animation: hop 0.5s steps(1); }
-@keyframes flash { 0% { opacity: 0; } 30% { opacity: 0.9; } 100% { opacity: 0; } }
-@keyframes hop { 25%, 50% { transform: translateY(calc(-4 * var(--u))); } 75% { transform: translateY(calc(-1 * var(--u))); } }
+/* Entering (2.1s, see enterBooth): run to the booth, hop through the doorway,
+   curtain drops, light glows through it, then the camera flash */
+#screen-landing.entering .cat-walker { animation: cat-enter 1.5s forwards, hide-late 1.5s steps(1) forwards; }
+#screen-landing.entering .cat-inside { animation: show-late 1.5s steps(1) forwards; }
+#screen-landing.entering .cat-blink { animation: none; }
+#screen-landing.entering .cat-idle { animation: show-late 1.5s steps(1) forwards; }
+#screen-landing.entering .cat-run1 { animation: run-a 0.18s steps(1) 6; }
+#screen-landing.entering .cat-run2 { animation: run-b 0.18s steps(1) 6; }
+#screen-landing.entering .curtain-sprite { animation: curtain-drop 0.36s steps(9, end) 1.15s forwards; }
+#screen-landing.entering .booth-glow { animation: glow-pop 0.45s steps(4, jump-none) 1.55s; }
+#screen-landing.entering .landing-flash { animation: flash 0.45s ease-out 1.65s; }
+#screen-landing.entering .enter-btn { transform: translateY(4px); --lift: 2px; }
 
+/* Every step moves a whole number of pixels: run 2px/step, leap 3x6px, land 4x6px.
+   At 72% the walker is swapped for the smaller cat standing inside the doorway. */
+@keyframes cat-enter {
+    0% { transform: translate(0, 0); animation-timing-function: steps(11, end); }
+    42% { transform: translate(calc(-22 * var(--px)), 0); animation-timing-function: steps(6, end); }
+    58% { transform: translate(calc(-40 * var(--px)), calc(-36 * var(--px))); animation-timing-function: steps(3, end); }
+    72%, 100% { transform: translate(calc(-52 * var(--px)), calc(-18 * var(--px))); }
+}
+@keyframes hide-late { 0% { opacity: 1; } 72% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes show-late { 0% { opacity: 0; } 72% { opacity: 1; } 100% { opacity: 1; } }
+@keyframes run-a { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes run-b { 0% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes curtain-drop { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+@keyframes glow-pop { 0% { opacity: 0; } 25% { opacity: 0.9; } 100% { opacity: 0; } }
+@keyframes flash { 0% { opacity: 0; } 30% { opacity: 0.9; } 100% { opacity: 0; } }
+
+@media (max-width: 1000px) {
+    .landing-props { transform: translateX(-50%); }
+}
 @media (max-width: 700px) {
     .landing-hero { padding-top: max(96px, 19vh); }
-    .landing-props { transform: translateX(-50%); }
 }
 @media (max-height: 540px) and (orientation: landscape) {
     .landing-hero { padding-top: 56px; }
@@ -557,6 +597,21 @@ input[type=text]:focus { --oc: var(--accent); }
 }
 .sticker-btn:hover { transform: translateY(-3px); --oc: var(--accent); --lift: 6px; }
 .sticker-btn:active { transform: translateY(2px); --lift: 1px; }
+.sticker-btn img { width: 74%; height: 74%; object-fit: contain; image-rendering: pixelated; display: block; margin: auto; pointer-events: none; }
+.sticker-clear { background: var(--yellow); }
+.sticker-help { font-size: 0.8rem; color: var(--text-muted); margin: 0 0 12px; }
+
+/* Sticker colour variants */
+.variant-row { display: flex; flex-wrap: wrap; gap: 12px; padding: 3px; }
+.variant-btn {
+    width: 30px; height: 30px; padding: 0; cursor: pointer;
+    background: var(--card-bg); color: var(--text-dark);
+    font-family: 'Pixelify Sans', sans-serif; font-weight: 700; font-size: 1rem; line-height: 1;
+    --lift: 3px; transition: transform 0.1s steps(1);
+}
+.variant-btn:hover { transform: translateY(-2px); --lift: 5px; }
+.variant-btn.active { --oc: var(--accent); --inset: inset 0 0 0 2px var(--panel-bg); transform: translateY(-2px); --lift: 5px; }
+.variant-btn:focus-visible { outline: 3px dashed var(--accent); outline-offset: 5px; }
 
 /* --- DOWNLOAD TOAST --- */
 #download-toast {
@@ -628,8 +683,9 @@ input[type=text]:focus { --oc: var(--accent); }
 .setup-sidebar, .tools-scroll-area, #screen-frame, .download-modal-content { scrollbar-width: thin; scrollbar-color: var(--accent-soft) transparent; }
 
 @media (prefers-reduced-motion: reduce) {
-    .scene .twinkle, .scene .glow, .cat-sprite, .landing-hero, .frame-inner { animation: none; }
-    #screen-landing.entering .landing-flash, #screen-landing.entering .cat-sprite { animation: none; }
+    .scene .twinkle, .scene path, .cat-sprite .cat-blink, .landing-hero, .frame-inner { animation: none; }
+    #screen-landing.entering .landing-flash, #screen-landing.entering .cat-walker, #screen-landing.entering .cat-sprite g,
+    #screen-landing.entering .curtain-sprite, #screen-landing.entering .booth-glow, #screen-landing.entering .cat-inside { animation: none; }
     .frame-card, .frame-preview, .enter-btn, .btn { transition: none; }
 }
 
@@ -673,4 +729,6 @@ input[type=text]:focus { --oc: var(--accent); }
 
     .sticker-grid { grid-template-columns: repeat(auto-fill, minmax(45px, 1fr)); }
     .sticker-btn { height: 45px; font-size: 1.4rem; }
+    .variant-row { gap: 10px; }
+    .variant-btn { width: 26px; height: 26px; }
 }

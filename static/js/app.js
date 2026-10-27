@@ -53,6 +53,7 @@ window.onload = () => {
         editFilterSel.add(new Option(f, f));
     });
 
+    buildStickerPanel();
     setupSmartInteractions();
 };
 
@@ -68,13 +69,16 @@ function showScreen(id) {
     SCREENS.forEach(s => document.getElementById(s).classList.toggle('hidden', s !== id));
 }
 
+// The cat runs into the booth, the curtain drops and the camera flashes, then on to frames
 function enterBooth() {
     const landing = document.getElementById('screen-landing');
+    if (landing.classList.contains('entering')) return;
     landing.classList.add('entering');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     setTimeout(() => {
         showScreen('screen-frame');
         landing.classList.remove('entering');
-    }, 550);
+    }, reduceMotion ? 200 : 2100);
 }
 
 function confirmFrame() {
@@ -276,8 +280,85 @@ async function triggerPrintingAnimation() {
 }
 
 // --- STICKERS & ZOOM LOGIC ---
-function addSticker(char) {
-    stickers.push({ char: char, x: finalCanvas.width / 2, y: finalCanvas.height / 2, size: 250, rotation: 0 });
+// Sticker colour choice: 'classic' (each sprite's own colours), 'mix' (random per sticker) or a family key
+let stickerFamily = 'classic';
+let stickerBorder = true;
+
+function resolveFamily(spriteId) {
+    const families = Object.keys(PixelStickers.FAMILIES);
+    if (stickerFamily === 'mix') return families[Math.floor(Math.random() * families.length)];
+    if (stickerFamily === 'classic') return PixelStickers.SPRITES[spriteId].family;
+    return stickerFamily;
+}
+
+function buildStickerPanel() {
+    const variants = document.getElementById('sticker-variants');
+    const options = [
+        { key: 'classic', label: 'Classic' },
+        ...Object.entries(PixelStickers.FAMILIES).map(([key, f]) => ({ key, label: f.label })),
+        { key: 'mix', label: 'Mix' }
+    ];
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'variant-btn' + (opt.key === stickerFamily ? ' active' : '');
+        btn.dataset.family = opt.key;
+        btn.title = opt.label;
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-label', opt.label);
+        btn.setAttribute('aria-checked', opt.key === stickerFamily);
+        const f = PixelStickers.FAMILIES[opt.key];
+        if (f) btn.style.background = `linear-gradient(135deg, ${f.c} 0 33%, ${f.a} 33% 66%, ${f.b} 66%)`;
+        else btn.textContent = opt.key === 'mix' ? '?' : '★';
+        btn.onclick = () => setStickerFamily(opt.key);
+        variants.appendChild(btn);
+    });
+
+    const grid = document.getElementById('sticker-grid');
+    Object.entries(PixelStickers.SPRITES).forEach(([id, sprite]) => {
+        const btn = document.createElement('button');
+        btn.className = 'sticker-btn';
+        btn.dataset.sprite = id;
+        btn.title = sprite.label;
+        btn.setAttribute('aria-label', `Add ${sprite.label} sticker`);
+        btn.onclick = () => addSticker(id);
+        btn.appendChild(document.createElement('img')).alt = '';
+        grid.appendChild(btn);
+    });
+    refreshStickerPreviews();
+}
+
+function refreshStickerPreviews() {
+    document.querySelectorAll('#sticker-grid [data-sprite]').forEach(btn => {
+        const id = btn.dataset.sprite;
+        const fam = (stickerFamily === 'classic' || stickerFamily === 'mix') ? PixelStickers.SPRITES[id].family : stickerFamily;
+        btn.querySelector('img').src = PixelStickers.previewURL(id, fam, stickerBorder);
+    });
+}
+
+function setStickerFamily(key) {
+    stickerFamily = key;
+    document.querySelectorAll('.variant-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.family === key);
+        b.setAttribute('aria-checked', b.dataset.family === key);
+    });
+    refreshStickerPreviews();
+    // Recolour the sticker that's currently selected on the strip
+    const s = stickers[selectedStickerIndex];
+    if (s) { s.family = resolveFamily(s.sprite); requestRender(); }
+}
+
+function setStickerBorder(on) {
+    stickerBorder = on;
+    refreshStickerPreviews();
+    const s = stickers[selectedStickerIndex];
+    if (s) { s.border = on; requestRender(); }
+}
+
+function addSticker(spriteId) {
+    stickers.push({
+        sprite: spriteId, family: resolveFamily(spriteId), border: stickerBorder,
+        x: finalCanvas.width / 2, y: finalCanvas.height / 2, size: 250, rotation: 0
+    });
     selectedStickerIndex = stickers.length - 1; 
     requestRender();
 }
@@ -610,11 +691,15 @@ function render() {
     finalCtx.textAlign = "center";
     finalCtx.textBaseline = "middle";
     stickers.forEach(s => {
+        // Fit the pixel sprite inside the sticker's size box, scaled with hard pixel edges
+        const sprite = PixelStickers.getCanvas(s.sprite, s.family, s.border);
+        const scale = s.size / Math.max(sprite.width, sprite.height);
+        const dw = sprite.width * scale, dh = sprite.height * scale;
         finalCtx.save();
         finalCtx.translate(s.x, s.y);
         finalCtx.rotate(s.rotation);
-        finalCtx.font = `${s.size}px Arial`;
-        finalCtx.fillText(s.char, 0, 0); 
+        finalCtx.imageSmoothingEnabled = false;
+        finalCtx.drawImage(sprite, -dw / 2, -dh / 2, dw, dh);
         finalCtx.restore();
     });
 
