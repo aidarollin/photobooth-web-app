@@ -54,15 +54,17 @@ window.onload = () => {
     });
 
     buildStickerPanel();
+    setupStickerPanel();
     setupSmartInteractions();
 };
 
 // --- SCREEN FLOW: landing -> frame -> capture -> editor ---
 const SCREENS = ['screen-landing', 'screen-frame', 'screen-setup', 'screen-editor'];
+// ratio = width / height of one photo on the strip (used by the camera preview, crops and render)
 const LAYOUTS = {
-    strip_4: { name: 'Classic Strip', shots: 4 },
-    strip_3: { name: 'Short Strip', shots: 3 },
-    grid_4:  { name: 'Grid', shots: 4 }
+    strip_4: { name: 'Classic Strip', shots: 4, ratio: 4.5 / 3.2 },
+    strip_3: { name: 'Short Strip', shots: 3, ratio: 4.5 / 4.2 },
+    grid_4:  { name: 'Grid', shots: 4, ratio: 4.6 / 6.5 }
 };
 
 function showScreen(id) {
@@ -84,6 +86,7 @@ function enterBooth() {
 function confirmFrame() {
     const layout = LAYOUTS[document.getElementById('active-layout').value];
     document.getElementById('frame-summary-text').innerText = `${layout.name} · ${layout.shots} shots`;
+    syncShotsToLayout();
     showScreen('screen-setup');
     startCamera();
 }
@@ -180,64 +183,159 @@ function applyLiveFilter() {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// --- CAPTURE & UPLOAD LOGIC ---
-async function startSequence() {
-    capturedImages = [];
-    stickers = []; 
-    selectedStickerIndex = null;
-    const layout = document.getElementById('active-layout').value;
-    const targetCount = LAYOUTS[layout].shots;
-    document.getElementById('edit-filter').value = document.getElementById('setup-filter').value;
+// --- SHOTS ---
+// One slot per photo in the chosen layout. Each shot keeps its original image plus a crop
+// (zoom + centre), so it can be re-cropped until the strip is printed. `out` is the cropped
+// canvas the strip is rendered from, with exactly the layout's photo ratio.
+let shots = [];
+let capturing = false;
+let uploadTarget = null; // slot index for a single-slot upload, or null to fill empty slots
 
-    for (let i = 1; i <= targetCount; i++) {
+const currentLayout = () => LAYOUTS[document.getElementById('active-layout').value];
+const MAX_SHOT_WIDTH = 1600;
+
+// Largest rect of the photo ratio that fits the source (what zoom = 1 shows)
+function baseCrop(src, ratio) {
+    return src.width / src.height > ratio ? { w: src.height * ratio, h: src.height } : { w: src.width, h: src.width / ratio };
+}
+
+// Source-pixel crop for a zoom/centre, clamped inside the image (and the centre clamped to match)
+function cropRect(src, state, ratio) {
+    const b = baseCrop(src, ratio), w = b.w / state.zoom, h = b.h / state.zoom;
+    const x = Math.min(Math.max(state.cx * src.width - w / 2, 0), src.width - w);
+    const y = Math.min(Math.max(state.cy * src.height - h / 2, 0), src.height - h);
+    state.cx = (x + w / 2) / src.width;
+    state.cy = (y + h / 2) / src.height;
+    return { x, y, w, h };
+}
+
+function renderShot(shot) {
+    const r = cropRect(shot.src, shot, currentLayout().ratio);
+    const scale = Math.min(1, MAX_SHOT_WIDTH / r.w);
+    const out = document.createElement('canvas');
+    out.width = Math.round(r.w * scale);
+    out.height = Math.round(r.h * scale);
+    out.getContext('2d').drawImage(shot.src, r.x, r.y, r.w, r.h, 0, 0, out.width, out.height);
+    shot.out = out;
+}
+
+function makeShot(src) {
+    const shot = { src, zoom: 1, cx: 0.5, cy: 0.5 };
+    renderShot(shot);
+    return shot;
+}
+
+// Called when the layout is confirmed: resize the slot list and re-crop existing shots to the new ratio
+function syncShotsToLayout() {
+    const layout = currentLayout();
+    shots = Array.from({ length: layout.shots }, (_, i) => shots[i] || null);
+    shots.forEach(shot => shot && renderShot(shot));
+    document.documentElement.style.setProperty('--shot-ratio', layout.ratio);
+    // tall photos fit one row; wide ones look better two per row
+    document.documentElement.style.setProperty('--slot-cols', layout.ratio < 1.2 ? layout.shots : 2);
+    renderSlots();
+}
+
+function renderSlots() {
+    const wrap = document.getElementById('shot-slots');
+    const ratio = currentLayout().ratio;
+    wrap.innerHTML = '';
+    shots.forEach((shot, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'shot-slot' + (shot ? ' filled' : ' empty');
+        btn.setAttribute('aria-label', shot ? `Adjust photo ${i + 1}` : `Upload photo ${i + 1}`);
+        btn.onclick = () => shot ? openCrop([i]) : uploadInto(i);
+        if (shot) {
+            const thumb = document.createElement('canvas');
+            thumb.width = 240; thumb.height = Math.round(240 / ratio);
+            thumb.getContext('2d').drawImage(shot.out, 0, 0, thumb.width, thumb.height);
+            btn.appendChild(thumb);
+        } else {
+            btn.insertAdjacentHTML('beforeend', '<span class="slot-add" aria-hidden="true">＋</span>');
+        }
+        btn.insertAdjacentHTML('beforeend', `<span class="slot-num">${i + 1}</span>`);
+        wrap.appendChild(btn);
+    });
+    const filled = shots.filter(Boolean).length;
+    document.getElementById('shot-count').innerText = `${filled} / ${shots.length}`;
+    document.getElementById('print-btn').disabled = capturing || filled < shots.length;
+}
+
+function setCapturing(on) {
+    capturing = on;
+    document.getElementById('camera-btn').disabled = on;
+    document.getElementById('upload-btn').disabled = on;
+    renderSlots();
+}
+
+// --- CAPTURE & UPLOAD LOGIC ---
+// The camera fills the empty slots (or retakes all if every slot is full); the preview frame
+// already shows the exact crop, so the shot lands on the strip as seen.
+async function startSequence() {
+    if (capturing) return;
+    if (!video.videoWidth) { alert('The camera is not ready yet. Please allow camera access and try again.'); return; }
+    let targets = shots.map((s, i) => s ? -1 : i).filter(i => i >= 0);
+    if (targets.length === 0) { shots = shots.map(() => null); targets = shots.map((_, i) => i); }
+
+    setCapturing(true);
+    const badge = document.getElementById('shot-badge');
+    for (const i of targets) {
+        badge.innerText = `Shot ${i + 1} of ${shots.length}`;
+        badge.classList.remove('hidden');
         overlay.classList.remove('hidden');
         for (let c = 3; c > 0; c--) { overlay.innerText = c; await sleep(1000); }
         overlay.innerText = "📸"; await sleep(200);
-        
-        snapPhoto();
+
+        shots[i] = makeShot(snapPhoto());
+        renderSlots();
         video.style.opacity = 0; await sleep(100); video.style.opacity = 1;
         overlay.classList.add('hidden'); await sleep(1000);
     }
-    
-    triggerPrintingAnimation();
+    badge.classList.add('hidden');
+    setCapturing(false);
+
+    if (shots.every(Boolean)) printStrip();
 }
 
+// Full mirrored camera frame; makeShot() centre-crops it exactly like the preview (object-fit: cover)
 function snapPhoto() {
-    captureCanvas.width = video.videoWidth;
-    captureCanvas.height = video.videoHeight;
-    const ctx = captureCanvas.getContext('2d');
-    ctx.translate(captureCanvas.width, 0);
+    const frame = document.createElement('canvas');
+    frame.width = video.videoWidth;
+    frame.height = video.videoHeight;
+    const ctx = frame.getContext('2d');
+    ctx.translate(frame.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
-    let img = new Image();
-    img.src = captureCanvas.toDataURL('image/jpeg', 1.0);
-    capturedImages.push(img);
+    return frame;
 }
 
+function uploadInto(slot) {
+    uploadTarget = slot;
+    const input = document.getElementById('file-upload');
+    input.multiple = slot === null;
+    input.click();
+}
+
+// Upload one or more photos: into a chosen slot, or into the empty slots in order
+// (starting over if every slot is already full), then open the crop editor for them
 async function handleUpload(event) {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+    const files = [...(event.target.files || [])];
+    event.target.value = '';
+    if (files.length === 0) return;
 
-    const layout = document.getElementById('active-layout').value;
-    const targetCount = LAYOUTS[layout].shots;
-
-    if (files.length < targetCount) {
-        alert(`Please select at least ${targetCount} photos for this layout!`);
-        return;
+    let targets;
+    if (uploadTarget !== null) targets = [uploadTarget];
+    else {
+        targets = shots.map((s, i) => s ? -1 : i).filter(i => i >= 0);
+        if (targets.length === 0) { shots = shots.map(() => null); targets = shots.map((_, i) => i); }
     }
+    targets = targets.slice(0, files.length);
 
-    capturedImages = [];
-    stickers = [];
-    selectedStickerIndex = null;
-    document.getElementById('edit-filter').value = document.getElementById('setup-filter').value;
-
-    for (let i = 0; i < targetCount; i++) {
-        const file = files[i];
-        const img = await loadImageFile(file);
-        capturedImages.push(img);
+    for (let k = 0; k < targets.length; k++) {
+        shots[targets[k]] = makeShot(await loadImageFile(files[k]));
     }
-
-    triggerPrintingAnimation();
+    renderSlots();
+    openCrop(targets);
 }
 
 function loadImageFile(file) {
@@ -251,6 +349,138 @@ function loadImageFile(file) {
         reader.readAsDataURL(file);
     });
 }
+
+function printStrip() {
+    if (!shots.length || !shots.every(Boolean)) return;
+    capturedImages = shots.map(s => s.out);
+    stickers = [];
+    selectedStickerIndex = null;
+    document.getElementById('edit-filter').value = document.getElementById('setup-filter').value;
+    triggerPrintingAnimation();
+}
+
+// --- CROP EDITOR ---
+// Steps through a queue of slots; drag pans, wheel / pinch / slider zooms (1x = fill the frame)
+let cropQueue = [], cropStep = 0, cropState = null;
+const cropStage = document.getElementById('crop-stage');
+const cropCanvas = document.getElementById('crop-canvas');
+const cropPointers = new Map();
+let cropPinch = null;
+
+function openCrop(indices) {
+    if (!indices.length) return;
+    cropQueue = indices;
+    showCropStep(0);
+    document.getElementById('crop-modal').classList.remove('hidden');
+    drawCrop();
+}
+
+function showCropStep(k) {
+    cropStep = k;
+    const i = cropQueue[k], shot = shots[i];
+    cropState = { zoom: shot.zoom, cx: shot.cx, cy: shot.cy };
+    const n = cropQueue.length;
+    document.getElementById('crop-title').innerText = `Adjust photo ${i + 1}` + (n > 1 ? ` (${k + 1} of ${n})` : '');
+    document.getElementById('crop-done').innerText = k < n - 1 ? 'Next →' : 'Done ✓';
+    document.getElementById('crop-zoom').value = Math.round(cropState.zoom * 100);
+    drawCrop();
+}
+
+function drawCrop() {
+    const shot = shots[cropQueue[cropStep]];
+    if (!shot || !cropState) return;
+    const dpr = window.devicePixelRatio || 1;
+    const box = cropStage.getBoundingClientRect();
+    if (!box.width) return;
+    cropCanvas.width = Math.round(box.width * dpr);
+    cropCanvas.height = Math.round(box.height * dpr);
+    const r = cropRect(shot.src, cropState, currentLayout().ratio);
+    const ctx = cropCanvas.getContext('2d');
+    ctx.drawImage(shot.src, r.x, r.y, r.w, r.h, 0, 0, cropCanvas.width, cropCanvas.height);
+    // rule-of-thirds guide
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = Math.max(1, dpr);
+    ctx.beginPath();
+    for (let t = 1; t < 3; t++) {
+        const x = Math.round(cropCanvas.width * t / 3) + 0.5, y = Math.round(cropCanvas.height * t / 3) + 0.5;
+        ctx.moveTo(x, 0); ctx.lineTo(x, cropCanvas.height);
+        ctx.moveTo(0, y); ctx.lineTo(cropCanvas.width, y);
+    }
+    ctx.stroke();
+}
+
+function setCropZoom(z) {
+    if (!cropState) return;
+    cropState.zoom = Math.min(4, Math.max(1, z));
+    document.getElementById('crop-zoom').value = Math.round(cropState.zoom * 100);
+    drawCrop();
+}
+
+function saveCrop() {
+    const shot = shots[cropQueue[cropStep]];
+    Object.assign(shot, cropState);
+    renderShot(shot);
+    renderSlots();
+    if (cropStep < cropQueue.length - 1) showCropStep(cropStep + 1);
+    else closeCrop();
+}
+
+function closeCrop() {
+    document.getElementById('crop-modal').classList.add('hidden');
+    cropQueue = []; cropState = null;
+}
+
+function replaceShot() {
+    const i = cropQueue[cropStep];
+    closeCrop();
+    uploadInto(i);
+}
+
+function removeShot() {
+    shots[cropQueue[cropStep]] = null;
+    renderSlots();
+    const rest = cropQueue.slice(cropStep + 1).filter(i => shots[i]);
+    closeCrop();
+    if (rest.length) openCrop(rest);
+}
+
+cropStage.addEventListener('pointerdown', e => {
+    try { cropStage.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone */ }
+    cropPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (cropPointers.size === 2) {
+        const [a, b] = [...cropPointers.values()];
+        cropPinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: cropState.zoom };
+    }
+});
+cropStage.addEventListener('pointermove', e => {
+    const prev = cropPointers.get(e.pointerId);
+    if (!prev || !cropState) return;
+    cropPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (cropPointers.size >= 2 && cropPinch) {
+        const [a, b] = [...cropPointers.values()];
+        setCropZoom(cropPinch.zoom * Math.hypot(a.x - b.x, a.y - b.y) / cropPinch.dist);
+        return;
+    }
+    // dragging the photo right moves the crop window left
+    const shot = shots[cropQueue[cropStep]];
+    const r = cropRect(shot.src, cropState, currentLayout().ratio);
+    const perPx = r.w / cropStage.getBoundingClientRect().width;
+    cropState.cx -= (e.clientX - prev.x) * perPx / shot.src.width;
+    cropState.cy -= (e.clientY - prev.y) * perPx / shot.src.height;
+    drawCrop();
+});
+['pointerup', 'pointercancel'].forEach(type => cropStage.addEventListener(type, e => {
+    cropPointers.delete(e.pointerId);
+    if (cropPointers.size < 2) cropPinch = null;
+}));
+cropStage.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (cropState) setCropZoom(cropState.zoom * Math.exp(-e.deltaY * 0.0015));
+}, { passive: false });
+window.addEventListener('resize', () => { if (cropState) drawCrop(); });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && cropState) closeCrop();
+});
 
 // --- PRINTING OVERLAY & DROP ANIMATION ---
 async function triggerPrintingAnimation() {
@@ -385,16 +615,90 @@ function getCanvasPos(e) {
     const scaleY = finalCanvas.height / rect.height;
     return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
 }
+// Handles are sized in screen pixels (converted to canvas pixels), so they stay big enough to
+// grab whatever the strip's display size or zoom: ~22px on desktop, ~32px on touch screens.
+const isCoarsePointer = () => window.matchMedia('(pointer: coarse)').matches;
+function handleMetrics(s) {
+    const rect = finalCanvas.getBoundingClientRect();
+    const k = rect.width ? finalCanvas.width / rect.width : 1; // canvas px per screen px
+    const coarse = isCoarsePointer();
+    const r = (coarse ? 16 : 11) * k;
+    const h = s.size / 2 + 6 * k;
+    return { k, r, h, rotY: -(h + (coarse ? 36 : 28) * k), hit: r * 1.35 };
+}
 function getHandlePositions(s) {
-    const h = s.size / 2 + CONFIG.handles.offset;
+    const m = handleMetrics(s);
     const corners = [
-        { x: -h, y: -h, type: 'resize' }, 
-        { x: h, y: -h, type: 'delete' }, 
-        { x: h, y: h, type: 'resize' },  
-        { x: -h, y: h, type: 'resize' } 
+        { x: -m.h, y: -m.h, type: 'resize' },
+        { x: m.h, y: -m.h, type: 'delete' },
+        { x: m.h, y: m.h, type: 'resize' },
+        { x: -m.h, y: m.h, type: 'resize' }
     ];
-    const rotHandle = { x: 0, y: -h - 60, type: 'rotate' };
-    return { corners, rotHandle };
+    return { corners, rotHandle: { x: 0, y: m.rotY, type: 'rotate' }, hit: m.hit };
+}
+
+// --- STICKER EDITING (panel buttons + keyboard) ---
+const STICKER_MIN = 80, STICKER_MAX = 1200;
+function selectedSticker() { return selectedStickerIndex !== null ? stickers[selectedStickerIndex] : null; }
+
+function stickerAction(act) {
+    const s = selectedSticker();
+    if (!s) return;
+    const deg = Math.round(s.rotation * 180 / Math.PI);
+    if (act === 'bigger') s.size = Math.min(STICKER_MAX, s.size * 1.1);
+    else if (act === 'smaller') s.size = Math.max(STICKER_MIN, s.size / 1.1);
+    else if (act === 'rotl') s.rotation = (Math.round(deg / 15) * 15 - 15) * Math.PI / 180;
+    else if (act === 'rotr') s.rotation = (Math.round(deg / 15) * 15 + 15) * Math.PI / 180;
+    else if (act === 'delete') { stickers.splice(selectedStickerIndex, 1); selectedStickerIndex = null; }
+    else if (act === 'done') selectedStickerIndex = null;
+    requestRender();
+}
+
+function updateStickerPanel() {
+    const panel = document.getElementById('sticker-panel');
+    const s = selectedSticker();
+    panel.classList.toggle('hidden', !s);
+    if (!s) return;
+    const deg = ((Math.round(s.rotation * 180 / Math.PI) % 360) + 360) % 360;
+    document.getElementById('sticker-panel-info').innerText = `${Math.round(s.size / 250 * 100)}% · ${deg}°`;
+}
+
+// Panel buttons: tap for one step, press and hold to keep going (size / rotate)
+function setupStickerPanel() {
+    document.querySelectorAll('#sticker-panel [data-act]').forEach(btn => {
+        const act = btn.dataset.act, repeats = !['delete', 'done'].includes(act);
+        let timer = null;
+        const stop = () => { clearTimeout(timer); clearInterval(timer); timer = null; };
+        btn.addEventListener('click', e => {
+            // keyboard / screen-reader activation (pointer presses are handled below)
+            if (e.detail === 0 || !repeats) stickerAction(act);
+        });
+        if (!repeats) return;
+        btn.addEventListener('pointerdown', e => {
+            if (e.button !== 0) return;
+            stickerAction(act);
+            timer = setTimeout(() => { timer = setInterval(() => stickerAction(act), 90); }, 400);
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => btn.addEventListener(t, stop));
+    });
+
+    // Keyboard: arrows move (Shift = bigger steps), + / - resize, [ / ] rotate, Delete removes, Esc deselects
+    document.addEventListener('keydown', e => {
+        const s = selectedSticker();
+        if (!s || document.getElementById('screen-editor').classList.contains('hidden')) return;
+        if (e.target instanceof Element && e.target.closest('input, select, textarea, [contenteditable]')) return;
+        const step = e.shiftKey ? 50 : 10;
+        const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+        if (moves[e.key]) { s.x += moves[e.key][0]; s.y += moves[e.key][1]; requestRender(); }
+        else if (e.key === '+' || e.key === '=') stickerAction('bigger');
+        else if (e.key === '-' || e.key === '_') stickerAction('smaller');
+        else if (e.key === '[') stickerAction('rotl');
+        else if (e.key === ']') stickerAction('rotr');
+        else if (e.key === 'Delete' || e.key === 'Backspace') stickerAction('delete');
+        else if (e.key === 'Escape') stickerAction('done');
+        else return;
+        e.preventDefault();
+    });
 }
 
 function setupSmartInteractions() {
@@ -404,13 +708,25 @@ function setupSmartInteractions() {
         return Math.hypot(dx, dy);
     }
 
+    function pinchAngle(e) {
+        return Math.atan2(e.touches[1].clientY - e.touches[0].clientY, e.touches[1].clientX - e.touches[0].clientX);
+    }
+
     function handleStart(e) {
         if (e.touches && e.touches.length === 2) {
             if (e.cancelable) e.preventDefault();
+            const sel = selectedSticker();
+            zoomState.panning = false;
+            dragTarget = null;
+            if (sel) {
+                // two fingers on a selected sticker: pinch to resize, twist to rotate
+                interactionMode = 'gesture';
+                startInteractionState = { sticker: { ...sel }, dist: pinchDist(e), angle: pinchAngle(e) };
+                return;
+            }
             pinchState.active = true;
             pinchState.startDist = pinchDist(e);
             pinchState.startScale = zoomState.scale;
-            zoomState.panning = false;
             return;
         }
 
@@ -422,21 +738,21 @@ function setupSmartInteractions() {
         const s = stickers[selectedStickerIndex];
 
         if (s) {
-            finalCtx.save();
-            finalCtx.translate(s.x, s.y);
-            finalCtx.rotate(s.rotation);
+            // tap position in the sticker's own (rotated) space
+            const dx = pos.x - s.x, dy = pos.y - s.y;
+            const local = { x: dx * Math.cos(-s.rotation) - dy * Math.sin(-s.rotation), y: dx * Math.sin(-s.rotation) + dy * Math.cos(-s.rotation) };
             const handles = getHandlePositions(s);
-            
-            if (finalCtx.isPointInPath(createCirclePath(handles.rotHandle.x, handles.rotHandle.y, CONFIG.handles.size), pos.x, pos.y)) {
+            const near = hd => Math.hypot(local.x - hd.x, local.y - hd.y) <= handles.hit;
+
+            if (near(handles.rotHandle)) {
                 interactionMode = 'rotate';
                 startInteractionState = { sticker: { ...s }, pos };
-                finalCtx.restore();
                 if(e.cancelable) e.preventDefault();
                 return;
             }
 
             for (const h of handles.corners) {
-                if (finalCtx.isPointInPath(createCirclePath(h.x, h.y, CONFIG.handles.size), pos.x, pos.y)) {
+                if (near(h)) {
                     if (h.type === 'delete') {
                         stickers.splice(selectedStickerIndex, 1);
                         selectedStickerIndex = null;
@@ -445,12 +761,10 @@ function setupSmartInteractions() {
                         interactionMode = 'resize';
                         startInteractionState = { sticker: { ...s }, pos };
                     }
-                    finalCtx.restore();
                     if(e.cancelable) e.preventDefault();
                     return;
                 }
             }
-            finalCtx.restore();
         }
         
         let foundSticker = null;
@@ -466,7 +780,8 @@ function setupSmartInteractions() {
             selectedStickerIndex = foundSticker;
             dragTarget = stickers[foundSticker];
             interactionMode = 'drag';
-            startInteractionState = { pos };
+            // keep the grab point under the finger instead of jumping the centre to it
+            startInteractionState = { pos, offset: { x: dragTarget.x - pos.x, y: dragTarget.y - pos.y } };
             if(e.cancelable) e.preventDefault();
             requestRender(); 
             return;
@@ -481,6 +796,16 @@ function setupSmartInteractions() {
     }
 
     function handleMove(e) {
+        if (e.touches && e.touches.length === 2 && interactionMode === 'gesture') {
+            if (e.cancelable) e.preventDefault();
+            const s = selectedSticker(), start = startInteractionState;
+            if (!s) return;
+            s.size = Math.max(STICKER_MIN, Math.min(STICKER_MAX, start.sticker.size * pinchDist(e) / start.dist));
+            s.rotation = start.sticker.rotation + (pinchAngle(e) - start.angle);
+            requestRender();
+            return;
+        }
+        if (interactionMode === 'gesture') return; // one finger lifted mid-gesture
         if (e.touches && e.touches.length === 2 && pinchState.active) {
             if (e.cancelable) e.preventDefault();
             const ratio = pinchDist(e) / pinchState.startDist;
@@ -495,15 +820,15 @@ function setupSmartInteractions() {
 
         if (interactionMode === 'drag' && dragTarget) {
             if(e.cancelable) e.preventDefault();
-            const pos = getCanvasPos(e);
-            dragTarget.x = pos.x; dragTarget.y = pos.y;
+            const pos = getCanvasPos(e), off = startInteractionState.offset || { x: 0, y: 0 };
+            dragTarget.x = pos.x + off.x; dragTarget.y = pos.y + off.y;
             requestRender();
         } else if (interactionMode === 'resize' && s) {
             if(e.cancelable) e.preventDefault();
             const pos = getCanvasPos(e);
             const initialDist = Math.hypot(startInteractionState.pos.x - s.x, startInteractionState.pos.y - s.y);
             const currentDist = Math.hypot(pos.x - s.x, pos.y - s.y);
-            s.size = Math.max(100, Math.min(1000, startInteractionState.sticker.size * (currentDist / initialDist)));
+            s.size = Math.max(STICKER_MIN, Math.min(STICKER_MAX, startInteractionState.sticker.size * (currentDist / initialDist)));
             requestRender();
         } else if (interactionMode === 'rotate' && s) {
             if(e.cancelable) e.preventDefault();
@@ -523,13 +848,9 @@ function setupSmartInteractions() {
     function handleEnd(e) {
         if (e && e.touches && e.touches.length < 2) pinchState.active = false;
         if (!e || !e.touches) pinchState.active = false;
+        // stay in gesture mode until every finger is up, so lifting one doesn't start a drag
+        if (interactionMode === 'gesture' && e && e.touches && e.touches.length > 0) return;
         dragTarget = null; zoomState.panning = false; interactionMode = null;
-    }
-
-    function createCirclePath(x, y, r) {
-        const path = new Path2D();
-        path.arc(x, y, r, 0, Math.PI * 2);
-        return path;
     }
 
     finalCanvas.addEventListener('mousedown', handleStart);
@@ -571,10 +892,7 @@ function render() {
     let cols = (layout === "grid_4") ? 2 : 1;
     let rows = (layout === "grid_4") ? 2 : (layout === "strip_3" ? 3 : 4);
 
-    let targetRatio;
-    if (layout === "strip_4") targetRatio = 4.5 / 3.2;       
-    else if (layout === "strip_3") targetRatio = 4.5 / 4.2; 
-    else targetRatio = 4.6 / 6.5;                            
+    let targetRatio = LAYOUTS[layout].ratio;
 
     let photoW = (w - (2 * marginOuter) - ((cols - 1) * marginInner)) / cols;
     let photoH = photoW / targetRatio;
@@ -589,7 +907,7 @@ function render() {
     finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
 
     capturedImages.forEach((img, i) => {
-        if (!img.complete) return;
+        if (img.complete === false) return; // images still loading; shot canvases are always ready
         let r = Math.floor(i / cols);
         let c = i % cols;
         
@@ -705,41 +1023,44 @@ function render() {
 
     const s = stickers[selectedStickerIndex];
     if (s && selectedStickerIndex !== null) {
+        const m = handleMetrics(s), lw = 2 * m.k;
         finalCtx.save();
         finalCtx.translate(s.x, s.y);
         finalCtx.rotate(s.rotation);
-        
+
         finalCtx.strokeStyle = CONFIG.handles.colorAccent;
-        finalCtx.lineWidth = 4;
-        finalCtx.setLineDash([15, 10]); 
-        finalCtx.strokeRect(-s.size/2 - 10, -s.size/2 - 10, s.size + 20, s.size + 20);
+        finalCtx.lineWidth = lw;
+        finalCtx.setLineDash([6 * m.k, 4 * m.k]);
+        finalCtx.strokeRect(-m.h, -m.h, m.h * 2, m.h * 2);
         finalCtx.setLineDash([]);
+        finalCtx.beginPath(); finalCtx.moveTo(0, -m.h); finalCtx.lineTo(0, m.rotY + m.r); finalCtx.stroke();
 
-        const h = s.size / 2 + CONFIG.handles.offset;
-        const r = CONFIG.handles.size;
-
-        finalCtx.fillStyle = CONFIG.handles.colorWhite;
-        finalCtx.strokeStyle = CONFIG.handles.colorAccent;
-        finalCtx.lineWidth = 3;
-        const corners = [ {x: -h, y: -h}, {x: h, y: h}, {x: -h, y: h} ];
-        corners.forEach(c => {
-            finalCtx.beginPath();
-            finalCtx.arc(c.x, c.y, r, 0, Math.PI * 2);
-            finalCtx.fill();
-            finalCtx.stroke();
-        });
-
-        finalCtx.fillStyle = CONFIG.handles.colorDelete; 
-        finalCtx.beginPath(); finalCtx.arc(h, -h, r, 0, Math.PI * 2); finalCtx.fill();
-        finalCtx.fillStyle = "white"; finalCtx.font = `${r*1.5}px Arial`; finalCtx.fillText('X', h, -h);
-
-        finalCtx.fillStyle = CONFIG.handles.colorAccent;
-        finalCtx.beginPath(); finalCtx.arc(0, -h - 60, r, 0, Math.PI * 2); finalCtx.fill();
-        finalCtx.strokeStyle = "white"; finalCtx.lineWidth = 4;
-        finalCtx.beginPath(); finalCtx.arc(0, -h - 60, r*0.6, 0.2*Math.PI, 1.8*Math.PI); finalCtx.stroke();
+        const dot = (x, y, fill, ring) => {
+            finalCtx.beginPath(); finalCtx.arc(x, y, m.r, 0, Math.PI * 2);
+            finalCtx.fillStyle = fill; finalCtx.fill();
+            finalCtx.lineWidth = lw; finalCtx.strokeStyle = ring; finalCtx.stroke();
+        };
+        // resize corners
+        [[-m.h, -m.h], [m.h, m.h], [-m.h, m.h]].forEach(([x, y]) => dot(x, y, CONFIG.handles.colorWhite, CONFIG.handles.colorAccent));
+        // delete
+        dot(m.h, -m.h, CONFIG.handles.colorDelete, CONFIG.handles.colorWhite);
+        const xr = m.r * 0.4;
+        finalCtx.strokeStyle = CONFIG.handles.colorWhite; finalCtx.lineWidth = 2.5 * m.k; finalCtx.lineCap = 'round';
+        finalCtx.beginPath();
+        finalCtx.moveTo(m.h - xr, -m.h - xr); finalCtx.lineTo(m.h + xr, -m.h + xr);
+        finalCtx.moveTo(m.h + xr, -m.h - xr); finalCtx.lineTo(m.h - xr, -m.h + xr);
+        finalCtx.stroke();
+        // rotate
+        dot(0, m.rotY, CONFIG.handles.colorAccent, CONFIG.handles.colorWhite);
+        finalCtx.strokeStyle = CONFIG.handles.colorWhite; finalCtx.lineWidth = 2 * m.k;
+        finalCtx.beginPath(); finalCtx.arc(0, m.rotY, m.r * 0.5, 0.2 * Math.PI, 1.75 * Math.PI); finalCtx.stroke();
+        const ax = Math.cos(1.75 * Math.PI) * m.r * 0.5, ay = m.rotY + Math.sin(1.75 * Math.PI) * m.r * 0.5;
+        finalCtx.beginPath(); finalCtx.moveTo(ax - 3 * m.k, ay - 3 * m.k); finalCtx.lineTo(ax, ay); finalCtx.lineTo(ax + 1 * m.k, ay + 4 * m.k); finalCtx.stroke();
+        finalCtx.lineCap = 'butt';
 
         finalCtx.restore();
     }
+    updateStickerPanel();
 }
 
 function isInAppBrowser() {

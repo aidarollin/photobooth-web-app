@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aida's Photobooth</title>
     <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&family=Nunito:wght@400;600;700;800&family=Poppins:wght@300;400;600&family=Caveat&family=Indie+Flower&family=Lobster&family=Pacifico&family=Sacramento&family=Satisfy&family=Special+Elite&family=Courier+Prime&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="static/css/style.css?v=8">
+    <link rel="stylesheet" href="static/css/style.css?v=10">
 </head>
 <body>
 
@@ -113,16 +113,27 @@
                 <select id="setup-filter" onchange="applyLiveFilter()"></select>
             </div>
 
+            <div class="tool-group">
+                <h3>Your Shots <span class="shot-count" id="shot-count">0 / 4</span></h3>
+                <div class="shot-slots" id="shot-slots"></div>
+                <p class="shot-help">Tap a photo to adjust its crop, or an empty slot to upload into it.</p>
+            </div>
+
             <div class="action-flex">
-                <button class="btn btn-primary" onclick="startSequence()">📸 Camera</button>
-                <button class="btn btn-outline" onclick="document.getElementById('file-upload').click()">📁 Upload</button>
+                <button class="btn btn-primary" id="camera-btn" onclick="startSequence()">📸 Camera</button>
+                <button class="btn btn-outline" id="upload-btn" onclick="uploadInto(null)">📁 Upload</button>
                 <input type="file" id="file-upload" class="hidden" multiple accept="image/*" onchange="handleUpload(event)">
             </div>
+            <button class="btn btn-primary print-btn" id="print-btn" onclick="printStrip()" disabled>🖨️ Print Strip</button>
         </div>
 
+        <!-- The preview frame has the exact shape of one photo on the strip: what you see is what prints -->
         <div class="cam-wrapper">
-            <video id="webcam" autoplay playsinline muted></video>
-            <div id="overlay" class="hidden">3</div>
+            <div class="cam-frame" id="cam-frame">
+                <video id="webcam" autoplay playsinline muted></video>
+                <div id="overlay" class="hidden">3</div>
+                <div id="shot-badge" class="hidden">Shot 1 of 4</div>
+            </div>
         </div>
 
     </div>
@@ -155,6 +166,24 @@
                 <button class="nav-arrow" onclick="navigateTab(-1)">&#9664;</button>
                 <h3 id="mobile-tab-title">Layout</h3>
                 <button class="nav-arrow" onclick="navigateTab(1)">&#9654;</button>
+            </div>
+
+            <!-- Shown while a sticker is selected: big, labelled controls that work on touch and keyboard -->
+            <div class="sticker-panel hidden" id="sticker-panel" role="toolbar" aria-label="Edit selected sticker">
+                <div class="sticker-panel-head">
+                    <h4>Edit Sticker</h4>
+                    <span class="sticker-panel-info" id="sticker-panel-info" aria-live="polite">100% · 0°</span>
+                </div>
+                <div class="sticker-panel-btns">
+                    <button class="st-btn" data-act="smaller" aria-label="Make sticker smaller" title="Smaller (−)"><span class="st-icon">−</span><span class="st-label">Smaller</span></button>
+                    <button class="st-btn" data-act="bigger" aria-label="Make sticker bigger" title="Bigger (+)"><span class="st-icon">+</span><span class="st-label">Bigger</span></button>
+                    <button class="st-btn" data-act="rotl" aria-label="Rotate sticker left" title="Rotate left ([)"><span class="st-icon">↺</span><span class="st-label">Rotate</span></button>
+                    <button class="st-btn" data-act="rotr" aria-label="Rotate sticker right" title="Rotate right (])"><span class="st-icon">↻</span><span class="st-label">Rotate</span></button>
+                    <button class="st-btn st-delete" data-act="delete" aria-label="Delete sticker" title="Delete (Del)"><span class="st-icon">🗑️</span><span class="st-label">Delete</span></button>
+                    <button class="st-btn st-done" data-act="done" aria-label="Done editing sticker" title="Done (Esc)"><span class="st-icon">✓</span><span class="st-label">Done</span></button>
+                </div>
+                <p class="sticker-panel-tip touch-only">Drag to move · pinch with two fingers to resize &amp; rotate</p>
+                <p class="sticker-panel-tip mouse-only">Drag to move · arrows nudge · + / − resize · [ / ] rotate</p>
             </div>
 
             <div class="tools-scroll-area">
@@ -267,6 +296,25 @@
         </div>
     </div>
 
+    <!-- Crop editor: reposition / zoom a photo inside its slot before printing -->
+    <div id="crop-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+        <div class="crop-card">
+            <button class="crop-close" onclick="closeCrop()" aria-label="Close">✕</button>
+            <h3 id="crop-title">Adjust photo 1</h3>
+            <p class="crop-help">Drag to move · pinch, scroll or use the slider to zoom</p>
+            <div class="crop-stage" id="crop-stage"><canvas id="crop-canvas"></canvas></div>
+            <div class="slider-row crop-zoom-row">
+                <span class="slider-label">Zoom</span>
+                <input type="range" id="crop-zoom" min="100" max="400" value="100" oninput="setCropZoom(this.value / 100)">
+            </div>
+            <div class="crop-actions">
+                <button class="btn btn-outline" onclick="replaceShot()">📁 Replace</button>
+                <button class="btn btn-outline" onclick="removeShot()">🗑️ Remove</button>
+                <button class="btn btn-primary" id="crop-done" onclick="saveCrop()">Done ✓</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Download success toast -->
     <div id="download-toast" class="hidden">✅ Photo saved!</div>
 
@@ -285,6 +333,6 @@
 
     <script src="static/js/stickers.js?v=8"></script>
     <script src="static/js/scene.js?v=8"></script>
-    <script src="static/js/app.js?v=8"></script>
+    <script src="static/js/app.js?v=10"></script>
 </body>
 </html>
